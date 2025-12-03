@@ -213,8 +213,7 @@
         <div id="host-view" class="hidden">
             <div id="host-controls" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 20px;">
                 <button class="btn-host" onclick="drawNumber()" style="padding: 15px 40px; font-size: 20px;">Draw Pokemon</button>
-                
-                <!-- Updated Host Display: Flex container with larger text and image support -->
+                <!-- Host Display with Text + Image -->
                 <div id="host-current-call-display" style="display: flex; align-items: center; font-size: 24px; font-weight: bold; color: var(--secondary);">
                     Ready?
                 </div>
@@ -280,6 +279,37 @@
     let calledNumbers = [];
     let myCardGrid = []; 
     
+    // --- PERSISTENT IDENTITY ---
+    // Generate a permanent ID for this device so we can reconnect
+    function getLocalClientID() {
+        let id = localStorage.getItem('bingo_client_id');
+        if (!id) {
+            id = Math.random().toString(36).substring(2) + Date.now().toString(36);
+            localStorage.setItem('bingo_client_id', id);
+        }
+        return id;
+    }
+    const myClientID = getLocalClientID();
+
+    // --- RECONNECT LOGIC ---
+    // When socket connects (or reconnects), identify ourselves
+    socket.on('connect', () => {
+        if (myRoomCode) {
+            console.log("Reconnecting to session...");
+            socket.emit('reconnect_session', { roomCode: myRoomCode, clientID: myClientID });
+        }
+    });
+
+    // Handle Mobile Background/Foreground switching
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+            // Force a check when coming back to the tab
+            if (myRoomCode && socket.connected) {
+                socket.emit('reconnect_session', { roomCode: myRoomCode, clientID: myClientID });
+            }
+        }
+    });
+
     function getBingoLabel(num) {
         if (num === 151) return "FREE";
         if (num <= 30) return `B${num}`;
@@ -391,14 +421,17 @@
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
-        socket.emit('create_game', pass);
+        // Send clientID so host can reconnect too
+        socket.emit('create_game', { password: pass, clientID: myClientID });
     }
 
     function joinGame() {
         const name = document.getElementById('player-name').value;
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!name || !code) return showToast("Enter name and code");
-        socket.emit('join_game', { roomCode: code, name: name });
+        
+        // Send clientID to identify device
+        socket.emit('join_game', { roomCode: code, name: name, clientID: myClientID });
     }
 
     function startGame() { socket.emit('start_game', myRoomCode); }
@@ -440,8 +473,11 @@
     });
 
     socket.on('number_drawn', (data) => {
-        const num = data.number;
-        calledNumbers = data.history;
+        // If history is provided (sync), use it. Otherwise append.
+        if (data.history) calledNumbers = data.history;
+        else calledNumbers.push(data.number);
+
+        const num = data.number; // The last/current number
 
         // Update Player View
         const display = document.getElementById('called-display');
@@ -449,17 +485,22 @@
             <div style="font-size:50px; font-weight:800; color:var(--secondary); line-height:1;">${getBingoLabel(num)}</div>
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:100px">
         `;
-        document.getElementById('last-calls').innerText = "History: " + data.history.slice(-5).map(n => getBingoLabel(n)).join(', ');
+        document.getElementById('last-calls').innerText = "History: " + calledNumbers.slice(-5).map(n => getBingoLabel(n)).join(', ');
 
-        // Update Host View (Now includes Image)
+        // Update Host View (With Image)
         const hostDisplay = document.getElementById('host-current-call-display');
         hostDisplay.innerHTML = `
             <span style="font-size: 40px; margin-right: 15px;">${getBingoLabel(num)}</span>
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">
         `;
         
-        const masterCell = document.getElementById(`master-${num}`);
-        if(masterCell) masterCell.classList.add('called');
+        // Update master board dots (re-run loop to ensure sync)
+        if (data.history) {
+            data.history.forEach(n => {
+                const cell = document.getElementById(`master-${n}`);
+                if(cell) cell.classList.add('called');
+            });
+        }
     });
 
     socket.on('host_update', (data) => {
