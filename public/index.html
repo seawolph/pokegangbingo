@@ -90,15 +90,23 @@
         .bingo-cell img { width: 75%; height: auto; transition: opacity 0.3s; }
         .bingo-cell span { font-size: 12px; font-weight: 800; color: var(--text-light); margin-top: 4px; }
         
-        /* Marked State */
-        .bingo-cell.marked { background-color: #FFF9C4; border-color: var(--accent); }
-        .bingo-cell.marked::after { 
+        /* Marked State: Regular Cells */
+        .bingo-cell.marked:not(.free-space) { background-color: #FFF9C4; border-color: var(--accent); }
+        
+        /* Poke Ball Overlay (Only if NOT free space) */
+        .bingo-cell.marked:not(.free-space)::after { 
             content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Pok%C3%A9_Ball_icon.svg/1024px-Pok%C3%A9_Ball_icon.svg.png');
             background-size: 60%; background-repeat: no-repeat; background-position: center;
             opacity: 0.8;
         }
-        .bingo-cell.marked img { opacity: 0.3; }
+        
+        /* Fade pokemon image (Only if NOT free space) */
+        .bingo-cell.marked:not(.free-space) img { opacity: 0.3; }
+
+        /* Free Space Specific Styles */
+        .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); }
+        .bingo-cell.free-space img { opacity: 1; }
 
         /* --- CURRENT CALL --- */
         #current-call { 
@@ -205,7 +213,11 @@
         <div id="host-view" class="hidden">
             <div id="host-controls" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 20px;">
                 <button class="btn-host" onclick="drawNumber()" style="padding: 15px 40px; font-size: 20px;">Draw Pokemon</button>
-                <div id="host-current-call-display" style="font-size: 24px; font-weight: bold; color: var(--secondary);">Ready?</div>
+                
+                <!-- Updated Host Display: Flex container with larger text and image support -->
+                <div id="host-current-call-display" style="display: flex; align-items: center; font-size: 24px; font-weight: bold; color: var(--secondary);">
+                    Ready?
+                </div>
             </div>
             
             <div id="host-dashboard">
@@ -318,7 +330,8 @@
                 div.appendChild(span);
 
                 if (num === 151) {
-                    div.classList.add('marked'); 
+                    div.classList.add('marked');
+                    div.classList.add('free-space'); 
                 } else {
                     div.onclick = () => handleCardClick(div, num);
                 }
@@ -410,7 +423,6 @@
         renderPlayerCard(data.card);
     });
 
-    // Updated listener: Just receives the count
     socket.on('player_count_update', (count) => {
         document.getElementById('player-count-display').innerText = count;
     });
@@ -439,8 +451,13 @@
         `;
         document.getElementById('last-calls').innerText = "History: " + data.history.slice(-5).map(n => getBingoLabel(n)).join(', ');
 
-        // Update Host View
-        document.getElementById('host-current-call-display').innerText = `${getBingoLabel(num)}`;
+        // Update Host View (Now includes Image)
+        const hostDisplay = document.getElementById('host-current-call-display');
+        hostDisplay.innerHTML = `
+            <span style="font-size: 40px; margin-right: 15px;">${getBingoLabel(num)}</span>
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">
+        `;
+        
         const masterCell = document.getElementById(`master-${num}`);
         if(masterCell) masterCell.classList.add('called');
     });
