@@ -4,144 +4,71 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pokemon Bingo</title>
-    <!-- Modern Font: Nunito (Good distinction between I and 1) -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #FF5252; /* Poke Red */
-            --secondary: #3B4CCA; /* Poke Blue */
-            --accent: #FFCB05; /* Pikachu Yellow */
-            --orange-txt: #E65100; /* Dark Orange for Letters */
+            --primary: #FF5252;
+            --secondary: #3B4CCA;
+            --accent: #FFCB05;
+            --orange-txt: #E65100;
             --bg: #F4F6F8;
             --surface: #FFFFFF;
             --text-dark: #2C3E50;
             --text-light: #7F8C8D;
         }
 
-        body { 
-            font-family: 'Nunito', sans-serif; 
-            background-color: var(--bg); 
-            color: var(--text-dark);
-            text-align: center; 
-            margin: 0; padding: 0;
-        }
-
+        body { font-family: 'Nunito', sans-serif; background-color: var(--bg); color: var(--text-dark); text-align: center; margin: 0; padding: 0; }
         #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; }
         .hidden { display: none !important; }
 
         h1 { color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
-        
-        /* Typography Helpers */
         .bingo-letter { color: var(--orange-txt); font-weight: 900; }
         .bingo-number { color: var(--secondary); font-weight: 900; }
 
-        /* Cards */
-        .card-container {
-            background: var(--surface);
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-            padding: 40px;
-            margin: 20px auto;
-            max-width: 500px;
-            transition: transform 0.3s ease;
-        }
+        .card-container { background: var(--surface); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 40px; margin: 20px auto; max-width: 500px; transition: transform 0.3s ease; }
 
-        /* Forms */
-        input { 
-            width: 80%; padding: 15px; font-size: 18px; margin: 10px 0; 
-            border: 2px solid #eee; border-radius: 12px; outline: none; transition: 0.3s;
-            font-family: 'Nunito', sans-serif; font-weight: 700;
-        }
+        input { width: 80%; padding: 15px; font-size: 18px; margin: 10px 0; border: 2px solid #eee; border-radius: 12px; outline: none; transition: 0.3s; font-family: 'Nunito', sans-serif; font-weight: 700; }
         input:focus { border-color: var(--secondary); }
         .code-input { text-transform: uppercase; letter-spacing: 5px; font-weight: 900; text-align: center; }
 
-        /* Buttons */
-        button { 
-            padding: 15px 30px; font-size: 16px; font-weight: 800; 
-            border: none; cursor: pointer; border-radius: 50px; 
-            text-transform: uppercase; transition: transform 0.2s, box-shadow 0.2s;
-            margin-top: 10px;
-        }
+        button { padding: 15px 30px; font-size: 16px; font-weight: 800; border: none; cursor: pointer; border-radius: 50px; text-transform: uppercase; transition: transform 0.2s, box-shadow 0.2s; margin-top: 10px; }
         .btn-primary { background: var(--secondary); color: white; box-shadow: 0 4px 15px rgba(59, 76, 202, 0.4); }
         .btn-accent { background: var(--accent); color: var(--secondary); box-shadow: 0 4px 15px rgba(255, 203, 5, 0.4); }
         .btn-host { background: var(--primary); color: white; box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4); }
-        
         button:hover { transform: translateY(-3px); }
         button:active { transform: translateY(1px); }
 
-        /* --- LOBBY STYLES --- */
-        .lobby-counter {
-            font-size: 80px; font-weight: 900; color: var(--secondary); margin: 20px 0;
-        }
+        .lobby-counter { font-size: 80px; font-weight: 900; color: var(--secondary); margin: 20px 0; }
         .lobby-subtext { color: var(--text-light); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
 
-        /* --- BINGO CARD --- */
         #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 5px; }
-        .header-cell { 
-            background: var(--primary); color: white; font-weight: 900; font-size: 24px; 
-            padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
+        .header-cell { background: var(--primary); color: white; font-weight: 900; font-size: 24px; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 
         #bingo-card { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-        .bingo-cell { 
-            background: white; border-radius: 12px; aspect-ratio: 1; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; position: relative;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 2px solid transparent;
-            transition: all 0.2s;
-        }
+        .bingo-cell { background: white; border-radius: 12px; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 2px solid transparent; transition: all 0.2s; }
         .bingo-cell:hover { transform: scale(1.05); z-index: 2; box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
-        
         .bingo-cell img { width: 75%; height: auto; transition: opacity 0.3s; }
         .bingo-cell span { font-size: 13px; font-weight: 800; color: var(--text-light); margin-top: 4px; letter-spacing: -0.5px; }
         
-        /* Marked State */
-        .bingo-cell.marked:not(.free-space) { 
-            background-color: #FFF9C4; border-color: var(--accent); 
-            cursor: default; 
-        }
+        .bingo-cell.marked:not(.free-space) { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.marked:not(.free-space):hover { transform: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-
-        /* Poke Ball Overlay */
-        .bingo-cell.marked:not(.free-space)::after { 
-            content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Pok%C3%A9_Ball_icon.svg/1024px-Pok%C3%A9_Ball_icon.svg.png');
-            background-size: 60%; background-repeat: no-repeat; background-position: center;
-            opacity: 0.8;
-        }
-        
+        .bingo-cell.marked:not(.free-space)::after { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Pok%C3%A9_Ball_icon.svg/1024px-Pok%C3%A9_Ball_icon.svg.png'); background-size: 60%; background-repeat: no-repeat; background-position: center; opacity: 0.8; }
         .bingo-cell.marked:not(.free-space) img { opacity: 0.3; }
-
-        /* Free Space */
         .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.free-space img { opacity: 1; }
 
-        /* --- CURRENT CALL --- */
-        #current-call { 
-            background: white; padding: 20px; margin-bottom: 20px; border-radius: 20px; 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05); border: 2px solid var(--secondary);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-height: 120px;
-        }
+        #current-call { background: white; padding: 20px; margin-bottom: 20px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); border: 2px solid var(--secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; }
 
-        /* --- BINGO BUTTON --- */
-        #bingo-btn {
-            width: 100%; margin: 20px 0; padding: 20px; font-size: 28px; letter-spacing: 2px;
-            background: linear-gradient(45deg, #FF5252, #FF1744); display: none;
-            animation: pulse 1.5s infinite;
-        }
+        #bingo-btn { width: 100%; margin: 20px 0; padding: 20px; font-size: 28px; letter-spacing: 2px; background: linear-gradient(45deg, #FF5252, #FF1744); display: none; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7); } 70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(255, 82, 82, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); } }
 
-        /* --- HOST DASHBOARD --- */
         #host-dashboard { display: grid; grid-template-columns: 350px 1fr; gap: 20px; text-align: left; }
         #master-board { display: grid; grid-template-columns: repeat(15, 1fr); gap: 2px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
         .master-cell { font-size: 11px; background: #eee; text-align: center; padding: 4px 0; color: #aaa; border-radius: 4px; font-weight: 700; }
         .master-cell.called { background: var(--secondary); color: white; font-weight: bold; }
 
         #leaderboard { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); height: fit-content; }
-        .player-row { 
-            border-bottom: 1px solid #f0f0f0; padding: 12px 0; display: flex; align-items: center; justify-content: space-between; 
-        }
+        .player-row { border-bottom: 1px solid #f0f0f0; padding: 12px 0; display: flex; align-items: center; justify-content: space-between; }
         .player-info h4 { margin: 0; color: var(--text-dark); font-size: 16px; font-weight: 800; }
         .player-info p { margin: 0; color: var(--primary); font-weight: bold; font-size: 12px; }
         
@@ -149,26 +76,34 @@
         .mini-cell { background: white; width: 100%; height: 100%; }
         .mini-cell.marked { background: var(--accent); }
 
-        /* --- WINNER SCREEN --- */
-        #winner-screen { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(44, 62, 80, 0.95); color: white; 
-            z-index: 100; display: none;
-            flex-direction: column; justify-content: center; align-items: center; 
-        }
+        /* WINNER SCREEN */
+        #winner-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); color: white; z-index: 100; display: none; flex-direction: column; justify-content: center; align-items: center; }
         #winner-screen.show { display: flex; animation: fadeIn 0.5s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+        /* VOTING MODAL */
+        #vote-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 150; display: none; flex-direction: column; justify-content: center; align-items: center; }
+        #vote-modal.show { display: flex; animation: fadeIn 0.3s; }
+        .vote-card { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 500px; text-align: center; }
+        .vote-timer { font-size: 40px; font-weight: 900; color: var(--primary); margin: 10px 0; }
+        
+        /* Chart */
+        #vote-chart { display: flex; justify-content: space-around; align-items: flex-end; height: 200px; margin-top: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .chart-bar-container { display: flex; flex-direction: column; align-items: center; width: 15%; height: 100%; justify-content: flex-end; }
+        .chart-bar { width: 100%; background: var(--secondary); border-radius: 8px 8px 0 0; transition: height 0.5s ease; min-height: 0px; }
+        .chart-label { margin-top: 10px; font-weight: 900; font-size: 20px; color: var(--orange-txt); }
+        .chart-count { font-size: 14px; color: #888; margin-bottom: 5px; font-weight: bold; }
+
+        /* Vote Buttons */
+        #vote-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        .vote-btn { width: 60px; height: 60px; border-radius: 50%; border: none; font-size: 24px; font-weight: 900; color: white; cursor: pointer; background: var(--secondary); transition: 0.2s; }
+        .vote-btn:hover { transform: scale(1.1); background: var(--primary); }
+
         /* Toast */
-        #toast { 
-            visibility: hidden; min-width: 250px; margin-left: -125px; 
-            background-color: var(--text-dark); color: #fff; text-align: center; 
-            border-radius: 50px; padding: 16px; position: fixed; z-index: 200; 
-            left: 50%; bottom: 30px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; font-weight: 700;
-        }
+        #toast { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: var(--text-dark); color: #fff; text-align: center; border-radius: 50px; padding: 16px; position: fixed; z-index: 200; left: 50%; bottom: 30px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; font-weight: 700; }
         #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
-        #toast .bingo-letter { color: #FF9100; } /* Lighter orange for dark toast background */
-        #toast .bingo-number { color: #4FC3F7; } /* Lighter blue for dark toast background */
+        #toast .bingo-letter { color: #FF9100; } 
+        #toast .bingo-number { color: #4FC3F7; }
 
         @media (max-width: 900px) { 
             #host-dashboard { grid-template-columns: 1fr; } 
@@ -207,9 +142,7 @@
                 <div class="lobby-subtext">Players Joined</div>
                 <div id="player-count-display" class="lobby-counter">0</div>
             </div>
-            
             <p style="color: #888;">Waiting for host to start...</p>
-            
             <div id="host-lobby-controls" class="hidden">
                 <button class="btn-host" onclick="startGame()">Start Game (Lock Room)</button>
             </div>
@@ -218,17 +151,13 @@
 
     <!-- GAME SCREEN -->
     <div id="game-screen" class="hidden">
-        
         <!-- HOST VIEW -->
         <div id="host-view" class="hidden">
-            <div id="host-controls" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 20px;">
+            <div id="host-controls" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
                 <button class="btn-host" onclick="drawNumber()" style="padding: 15px 40px; font-size: 20px;">Draw Pokemon</button>
-                <!-- Host Display with Text + Image -->
-                <div id="host-current-call-display" style="display: flex; align-items: center; font-size: 24px; font-weight: 800; color: var(--secondary);">
-                    Ready?
-                </div>
+                <button class="btn-accent" onclick="startVote()" style="padding: 15px 40px; font-size: 20px;">Start Vote</button>
+                <div id="host-current-call-display" style="display: flex; align-items: center; font-size: 24px; font-weight: 800; color: var(--secondary);">Ready?</div>
             </div>
-            
             <div id="host-dashboard">
                 <div id="leaderboard">
                     <h3 style="margin-top:0">Live Leaderboard</h3>
@@ -249,9 +178,7 @@
                     <span style="font-size: 24px; color: #ccc;">Waiting for host...</span>
                 </div>
             </div>
-            
             <button id="bingo-btn" class="btn-accent" onclick="claimBingo()">CLAIM BINGO!</button>
-            
             <div style="max-width: 500px; margin: 0 auto;">
                 <div id="bingo-header">
                     <div class="header-cell">B</div>
@@ -262,8 +189,33 @@
                 </div>
                 <div id="bingo-card"></div>
             </div>
-
             <div id="last-calls" style="margin-top:20px; color:#aaa; font-size: 14px; font-weight: 700;">History: None</div>
+        </div>
+    </div>
+</div>
+
+<!-- VOTE MODAL -->
+<div id="vote-modal">
+    <div class="vote-card">
+        <h2 style="margin:0; color:var(--text-dark)">Vote Next Letter!</h2>
+        <div id="vote-timer" class="vote-timer">30</div>
+        
+        <!-- Interactive Buttons (Hidden for Host or after voting) -->
+        <div id="vote-buttons">
+            <button class="vote-btn" onclick="submitVote('B')">B</button>
+            <button class="vote-btn" onclick="submitVote('I')">I</button>
+            <button class="vote-btn" onclick="submitVote('N')">N</button>
+            <button class="vote-btn" onclick="submitVote('G')">G</button>
+            <button class="vote-btn" onclick="submitVote('O')">O</button>
+        </div>
+
+        <!-- Chart (Visible to Host or after voting) -->
+        <div id="vote-chart">
+            <div class="chart-bar-container"><div class="chart-count" id="count-B">0</div><div class="chart-bar" id="bar-B" style="height: 0%;"></div><div class="chart-label">B</div></div>
+            <div class="chart-bar-container"><div class="chart-count" id="count-I">0</div><div class="chart-bar" id="bar-I" style="height: 0%;"></div><div class="chart-label">I</div></div>
+            <div class="chart-bar-container"><div class="chart-count" id="count-N">0</div><div class="chart-bar" id="bar-N" style="height: 0%;"></div><div class="chart-label">N</div></div>
+            <div class="chart-bar-container"><div class="chart-count" id="count-G">0</div><div class="chart-bar" id="bar-G" style="height: 0%;"></div><div class="chart-label">G</div></div>
+            <div class="chart-bar-container"><div class="chart-count" id="count-O">0</div><div class="chart-bar" id="bar-O" style="height: 0%;"></div><div class="chart-label">O</div></div>
         </div>
     </div>
 </div>
@@ -288,8 +240,9 @@
     let myRoomCode = null;
     let calledNumbers = [];
     let myCardGrid = []; 
-    
-    // --- PERSISTENT IDENTITY ---
+    let voteTimerInterval = null;
+    let isHost = false;
+
     function getLocalClientID() {
         let id = localStorage.getItem('bingo_client_id');
         if (!id) {
@@ -300,23 +253,16 @@
     }
     const myClientID = getLocalClientID();
 
-    // --- RECONNECT LOGIC ---
     socket.on('connect', () => {
-        if (myRoomCode) {
-            console.log("Reconnecting to session...");
-            socket.emit('reconnect_session', { roomCode: myRoomCode, clientID: myClientID });
-        }
+        if (myRoomCode) socket.emit('reconnect_session', { roomCode: myRoomCode, clientID: myClientID });
     });
 
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
-            if (myRoomCode && socket.connected) {
-                socket.emit('reconnect_session', { roomCode: myRoomCode, clientID: myClientID });
-            }
+            if (myRoomCode && socket.connected) socket.emit('reconnect_session', { roomCode: myRoomCode, clientID: myClientID });
         }
     });
 
-    // NEW FORMATTER (Orange Letter, Blue Number)
     function getBingoFormatted(num) {
         if (num === 151) return '<span style="color:var(--primary)">FREE</span>';
         let char = '';
@@ -330,7 +276,7 @@
 
     function showToast(htmlMessage) {
         const toast = document.getElementById("toast");
-        toast.innerHTML = htmlMessage; // Changed to innerHTML to support colors
+        toast.innerHTML = htmlMessage; 
         toast.className = "show";
         setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
     }
@@ -351,21 +297,16 @@
         myCardGrid = cardGrid; 
         const container = document.getElementById('bingo-card');
         container.innerHTML = '';
-        
         cardGrid.forEach(row => {
             row.forEach(num => {
                 const div = document.createElement('div');
                 div.className = 'bingo-cell';
                 div.id = `cell-${num}`; 
                 div.dataset.number = num;
-                
                 const img = document.createElement('img');
                 img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png`;
-                
                 const span = document.createElement('span');
-                // Use new formatter
                 span.innerHTML = getBingoFormatted(num);
-
                 div.appendChild(img);
                 div.appendChild(span);
 
@@ -375,34 +316,19 @@
                 } else if (markedNumbers.includes(num)) {
                     div.classList.add('marked');
                 }
-                
-                // Allow clicking unless it's the free space
-                if (num !== 151) {
-                    div.onclick = () => handleCardClick(div, num);
-                }
-                
+                if (num !== 151) div.onclick = () => handleCardClick(div, num);
                 container.appendChild(div);
             });
         });
-
         checkLocalBingo();
     }
 
     function handleCardClick(element, number) {
-        // STRICT: If already marked, STOP. Do not allow un-marking.
         if (element.classList.contains('marked')) return;
-
         if (calledNumbers.includes(number)) {
             element.classList.add('marked');
-            
-            socket.emit('mark_number', { 
-                roomCode: myRoomCode, 
-                number: number, 
-                isMarking: true 
-            });
-
+            socket.emit('mark_number', { roomCode: myRoomCode, number: number, isMarking: true });
             checkLocalBingo();
-
         } else {
             showToast(`${getBingoFormatted(number)} hasn't been called yet!`);
         }
@@ -414,51 +340,47 @@
             const el = document.getElementById(`cell-${num}`);
             return el && el.classList.contains('marked');
         };
-
         const checkLine = (line) => line.every(num => isMarked(num));
         let hasBingo = false;
-
-        // Rows
         for (let r = 0; r < 5; r++) if (checkLine(myCardGrid[r])) hasBingo = true;
-        // Cols
         for (let c = 0; c < 5; c++) {
             const col = [myCardGrid[0][c], myCardGrid[1][c], myCardGrid[2][c], myCardGrid[3][c], myCardGrid[4][c]];
             if (checkLine(col)) hasBingo = true;
         }
-        // Diagonals
         if(checkLine([myCardGrid[0][0], myCardGrid[1][1], myCardGrid[2][2], myCardGrid[3][3], myCardGrid[4][4]])) hasBingo = true;
         if(checkLine([myCardGrid[0][4], myCardGrid[1][3], myCardGrid[2][2], myCardGrid[3][1], myCardGrid[4][0]])) hasBingo = true;
-
         const btn = document.getElementById('bingo-btn');
         btn.style.display = hasBingo ? 'block' : 'none';
     }
 
-    function claimBingo() {
-        socket.emit('claim_bingo', myRoomCode);
-    }
-
-    // --- SOCKET ACTIONS ---
-
+    function claimBingo() { socket.emit('claim_bingo', myRoomCode); }
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
-
     function joinGame() {
         const name = document.getElementById('player-name').value;
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!name || !code) return showToast("Enter name and code");
         socket.emit('join_game', { roomCode: code, name: name, clientID: myClientID });
     }
-
     function startGame() { socket.emit('start_game', myRoomCode); }
     function drawNumber() { socket.emit('draw_number', myRoomCode); }
+    
+    // --- VOTING LOGIC ---
+    function startVote() { socket.emit('start_vote', myRoomCode); }
+    function submitVote(letter) {
+        socket.emit('submit_vote', { roomCode: myRoomCode, letter });
+        // Hide buttons for player immediately to show they voted
+        document.getElementById('vote-buttons').classList.add('hidden');
+    }
 
     // --- SOCKET LISTENERS ---
 
     socket.on('game_created', (code) => {
         myRoomCode = code;
+        isHost = true;
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('host-lobby-controls').classList.remove('hidden'); 
@@ -468,87 +390,55 @@
 
     socket.on('joined_success', (data) => {
         myRoomCode = data.roomCode;
+        isHost = false;
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('room-code-display').innerText = `${data.roomCode}`;
-        
         renderPlayerCard(data.card, data.markedNumbers);
     });
 
-    socket.on('player_count_update', (count) => {
-        document.getElementById('player-count-display').innerText = count;
-    });
-
+    socket.on('player_count_update', (count) => { document.getElementById('player-count-display').innerText = count; });
     socket.on('error_msg', (msg) => showToast(msg));
 
     socket.on('game_started', () => {
         document.getElementById('lobby-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
-        if (!document.getElementById('host-lobby-controls').classList.contains('hidden')) {
-            document.getElementById('host-view').classList.remove('hidden');
-        } else {
-            document.getElementById('player-view').classList.remove('hidden');
-        }
+        if (isHost) document.getElementById('host-view').classList.remove('hidden');
+        else document.getElementById('player-view').classList.remove('hidden');
     });
 
     socket.on('number_drawn', (data) => {
         if (data.history) calledNumbers = data.history;
         else calledNumbers.push(data.number);
-
         const num = data.number;
         const formattedHTML = getBingoFormatted(num);
-
-        const display = document.getElementById('called-display');
-        display.innerHTML = `
-            <div style="font-size:50px; line-height:1;">${formattedHTML}</div>
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:100px">
-        `;
-        
-        // History with colors
+        document.getElementById('called-display').innerHTML = `<div style="font-size:50px; line-height:1;">${formattedHTML}</div><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:100px">`;
         const historyHTML = calledNumbers.slice(-5).map(n => getBingoFormatted(n)).join(', ');
         document.getElementById('last-calls').innerHTML = "History: " + historyHTML;
-
-        const hostDisplay = document.getElementById('host-current-call-display');
-        hostDisplay.innerHTML = `
-            <span style="font-size: 40px; margin-right: 15px;">${formattedHTML}</span>
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">
-        `;
-        
-        if (data.history) {
-            data.history.forEach(n => {
-                const cell = document.getElementById(`master-${n}`);
-                if(cell) cell.classList.add('called');
-            });
-        }
+        document.getElementById('host-current-call-display').innerHTML = `<span style="font-size: 40px; margin-right: 15px;">${formattedHTML}</span><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">`;
+        if (data.history) data.history.forEach(n => { const cell = document.getElementById(`master-${n}`); if(cell) cell.classList.add('called'); });
     });
 
     socket.on('host_update', (data) => {
         const list = document.getElementById('leaderboard-list');
         list.innerHTML = '';
-
         data.topPlayers.forEach(p => {
             const row = document.createElement('div');
             row.className = 'player-row';
-
             const info = document.createElement('div');
             info.className = 'player-info';
             info.innerHTML = `<h4>${p.name}</h4><p>${p.toGo} to go</p>`;
-
             const mini = document.createElement('div');
             mini.className = 'mini-card';
-            
             p.card.forEach(cardRow => {
                 cardRow.forEach(val => {
                     const dot = document.createElement('div');
                     dot.className = 'mini-cell';
                     if (val === 151) dot.classList.add('free');
-                    if (p.markedNumbers.includes(val) || val === 151) {
-                        dot.classList.add('marked');
-                    }
+                    if (p.markedNumbers.includes(val) || val === 151) dot.classList.add('marked');
                     mini.appendChild(dot);
                 });
             });
-
             row.appendChild(info);
             row.appendChild(mini);
             list.appendChild(row);
@@ -558,6 +448,55 @@
     socket.on('game_over', (winnerName) => {
         document.getElementById('winner-name').innerText = winnerName;
         document.getElementById('winner-screen').classList.add('show');
+    });
+
+    // VOTING LISTENERS
+    socket.on('vote_started', () => {
+        const modal = document.getElementById('vote-modal');
+        const btns = document.getElementById('vote-buttons');
+        const timer = document.getElementById('vote-timer');
+        
+        // Reset Chart
+        ['B','I','N','G','O'].forEach(l => {
+            document.getElementById(`count-${l}`).innerText = '0';
+            document.getElementById(`bar-${l}`).style.height = '0%';
+        });
+
+        // UI State
+        modal.classList.add('show');
+        timer.innerText = "30";
+
+        if (isHost) {
+            btns.classList.add('hidden'); // Host just watches chart
+        } else {
+            btns.classList.remove('hidden'); // Players see buttons
+        }
+
+        // Timer Logic
+        let seconds = 30;
+        if(voteTimerInterval) clearInterval(voteTimerInterval);
+        voteTimerInterval = setInterval(() => {
+            seconds--;
+            timer.innerText = seconds;
+            if(seconds <= 0) clearInterval(voteTimerInterval);
+        }, 1000);
+    });
+
+    socket.on('vote_update', (counts) => {
+        // Find max for relative scaling
+        const max = Math.max(...Object.values(counts));
+        ['B','I','N','G','O'].forEach(l => {
+            const count = counts[l];
+            document.getElementById(`count-${l}`).innerText = count;
+            // Height is percentage of max (or 0 if max is 0)
+            const h = max > 0 ? (count / max) * 100 : 0;
+            document.getElementById(`bar-${l}`).style.height = `${h}%`;
+        });
+    });
+
+    socket.on('vote_ended', () => {
+        document.getElementById('vote-modal').classList.remove('show');
+        if(voteTimerInterval) clearInterval(voteTimerInterval);
     });
 
 </script>
