@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pokemon Bingo</title>
-    <!-- Modern Font: Nunito (Better distinction between I and 1, very Pokemon-style) -->
+    <!-- Modern Font: Nunito (Good distinction between I and 1) -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #FF5252; /* Poke Red */
             --secondary: #3B4CCA; /* Poke Blue */
             --accent: #FFCB05; /* Pikachu Yellow */
+            --orange-txt: #E65100; /* Dark Orange for Letters */
             --bg: #F4F6F8;
             --surface: #FFFFFF;
             --text-dark: #2C3E50;
@@ -30,6 +31,10 @@
 
         h1 { color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
         
+        /* Typography Helpers */
+        .bingo-letter { color: var(--orange-txt); font-weight: 900; }
+        .bingo-number { color: var(--secondary); font-weight: 900; }
+
         /* Cards */
         .card-container {
             background: var(--surface);
@@ -90,14 +95,14 @@
         .bingo-cell img { width: 75%; height: auto; transition: opacity 0.3s; }
         .bingo-cell span { font-size: 13px; font-weight: 800; color: var(--text-light); margin-top: 4px; letter-spacing: -0.5px; }
         
-        /* Marked State: Regular Cells */
+        /* Marked State */
         .bingo-cell.marked:not(.free-space) { 
             background-color: #FFF9C4; border-color: var(--accent); 
-            cursor: default; /* Show user it's locked */
+            cursor: default; 
         }
         .bingo-cell.marked:not(.free-space):hover { transform: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
 
-        /* Poke Ball Overlay (Only if NOT free space) */
+        /* Poke Ball Overlay */
         .bingo-cell.marked:not(.free-space)::after { 
             content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Pok%C3%A9_Ball_icon.svg/1024px-Pok%C3%A9_Ball_icon.svg.png');
@@ -105,10 +110,9 @@
             opacity: 0.8;
         }
         
-        /* Fade pokemon image (Only if NOT free space) */
         .bingo-cell.marked:not(.free-space) img { opacity: 0.3; }
 
-        /* Free Space Specific Styles */
+        /* Free Space */
         .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.free-space img { opacity: 1; }
 
@@ -163,6 +167,8 @@
             left: 50%; bottom: 30px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; font-weight: 700;
         }
         #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
+        #toast .bingo-letter { color: #FF9100; } /* Lighter orange for dark toast background */
+        #toast .bingo-number { color: #4FC3F7; } /* Lighter blue for dark toast background */
 
         @media (max-width: 900px) { 
             #host-dashboard { grid-template-columns: 1fr; } 
@@ -310,18 +316,21 @@
         }
     });
 
-    function getBingoLabel(num) {
-        if (num === 151) return "FREE";
-        if (num <= 30) return `B${num}`;
-        if (num <= 60) return `I${num}`;
-        if (num <= 90) return `N${num}`;
-        if (num <= 120) return `G${num}`;
-        return `O${num}`;
+    // NEW FORMATTER (Orange Letter, Blue Number)
+    function getBingoFormatted(num) {
+        if (num === 151) return '<span style="color:var(--primary)">FREE</span>';
+        let char = '';
+        if (num <= 30) char = 'B';
+        else if (num <= 60) char = 'I';
+        else if (num <= 90) char = 'N';
+        else if (num <= 120) char = 'G';
+        else char = 'O';
+        return `<span class="bingo-letter">${char}</span><span class="bingo-number">${num}</span>`;
     }
 
-    function showToast(message) {
+    function showToast(htmlMessage) {
         const toast = document.getElementById("toast");
-        toast.innerText = message;
+        toast.innerHTML = htmlMessage; // Changed to innerHTML to support colors
         toast.className = "show";
         setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
     }
@@ -354,12 +363,12 @@
                 img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png`;
                 
                 const span = document.createElement('span');
-                span.innerText = getBingoLabel(num);
+                // Use new formatter
+                span.innerHTML = getBingoFormatted(num);
 
                 div.appendChild(img);
                 div.appendChild(span);
 
-                // Apply marks from server (or default free space)
                 if (num === 151) {
                     div.classList.add('marked');
                     div.classList.add('free-space'); 
@@ -367,7 +376,7 @@
                     div.classList.add('marked');
                 }
                 
-                // Allow clicking unless it's the free space OR ALREADY MARKED
+                // Allow clicking unless it's the free space
                 if (num !== 151) {
                     div.onclick = () => handleCardClick(div, num);
                 }
@@ -380,11 +389,11 @@
     }
 
     function handleCardClick(element, number) {
-        // Prevent Un-marking: If already marked, do nothing.
+        // STRICT: If already marked, STOP. Do not allow un-marking.
         if (element.classList.contains('marked')) return;
 
         if (calledNumbers.includes(number)) {
-            element.classList.add('marked'); // Force ADD only
+            element.classList.add('marked');
             
             socket.emit('mark_number', { 
                 roomCode: myRoomCode, 
@@ -395,7 +404,7 @@
             checkLocalBingo();
 
         } else {
-            showToast(`${getBingoLabel(number)} hasn't been called yet!`);
+            showToast(`${getBingoFormatted(number)} hasn't been called yet!`);
         }
     }
 
@@ -487,17 +496,21 @@
         else calledNumbers.push(data.number);
 
         const num = data.number;
+        const formattedHTML = getBingoFormatted(num);
 
         const display = document.getElementById('called-display');
         display.innerHTML = `
-            <div style="font-size:50px; font-weight:900; color:var(--secondary); line-height:1;">${getBingoLabel(num)}</div>
+            <div style="font-size:50px; line-height:1;">${formattedHTML}</div>
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:100px">
         `;
-        document.getElementById('last-calls').innerText = "History: " + calledNumbers.slice(-5).map(n => getBingoLabel(n)).join(', ');
+        
+        // History with colors
+        const historyHTML = calledNumbers.slice(-5).map(n => getBingoFormatted(n)).join(', ');
+        document.getElementById('last-calls').innerHTML = "History: " + historyHTML;
 
         const hostDisplay = document.getElementById('host-current-call-display');
         hostDisplay.innerHTML = `
-            <span style="font-size: 40px; margin-right: 15px;">${getBingoLabel(num)}</span>
+            <span style="font-size: 40px; margin-right: 15px;">${formattedHTML}</span>
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">
         `;
         
