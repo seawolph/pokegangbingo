@@ -6,7 +6,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    pingTimeout: 60000, // Increase timeout to help with spotty mobile connections
+    pingTimeout: 60000, 
     cors: { origin: "*" }
 });
 
@@ -15,7 +15,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
-// --- HELPER: Generate Sorted Bingo Card ---
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -46,10 +45,8 @@ function generatePlayerCard() {
     return grid;
 }
 
-// --- HELPER: Calculate Distance ---
 function calculateDistanceToBingo(card, markedNumbers) {
     let minMissing = 5;
-
     const checkLine = (line) => {
         let missing = 0;
         line.forEach(num => {
@@ -81,7 +78,7 @@ io.on('connection', (socket) => {
         const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
         rooms[roomCode] = {
             hostId: socket.id,
-            hostClientID: clientID, // Persistent ID for host
+            hostClientID: clientID,
             started: false,
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
@@ -124,22 +121,27 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
 
-        // 1. CHECK FOR REJOIN (Device ID match)
+        // 1. REJOIN
         const existingPlayer = room.players.find(p => p.clientID === clientID);
         if (existingPlayer) {
-            // Update the socket ID to the new connection
             existingPlayer.id = socket.id;
             socket.join(roomCode);
             
-            // Send them back their card and current game state
-            socket.emit('joined_success', { roomCode, card: existingPlayer.card });
+            // Send back CARD + MARKED NUMBERS
+            socket.emit('joined_success', { 
+                roomCode, 
+                card: existingPlayer.card,
+                markedNumbers: existingPlayer.markedNumbers // <--- RESTORE MARKS
+            });
+
             if(room.started) socket.emit('game_started');
             
-            // Send current history so they sync up
-            socket.emit('number_drawn', { 
-                number: room.calledNumbers[room.calledNumbers.length - 1], 
-                history: room.calledNumbers 
-            });
+            if (room.calledNumbers.length > 0) {
+                socket.emit('number_drawn', { 
+                    number: room.calledNumbers[room.calledNumbers.length - 1], 
+                    history: room.calledNumbers 
+                });
+            }
             return;
         }
 
@@ -149,7 +151,7 @@ io.on('connection', (socket) => {
         const myCard = generatePlayerCard();
         const playerObj = {
             id: socket.id,
-            clientID: clientID, // Store device ID
+            clientID: clientID,
             name: name || `Player ${room.players.length + 1}`,
             card: myCard,
             markedNumbers: [151], 
@@ -159,36 +161,52 @@ io.on('connection', (socket) => {
         room.players.push(playerObj);
         socket.join(roomCode);
 
-        socket.emit('joined_success', { roomCode, card: myCard });
+        socket.emit('joined_success', { 
+            roomCode, 
+            card: myCard,
+            markedNumbers: [151]
+        });
         io.to(roomCode).emit('player_count_update', room.players.length);
     });
 
     // --- RECONNECT / SYNC EVENT ---
-    // Called when a mobile device wakes up
     socket.on('reconnect_session', ({ roomCode, clientID }) => {
         const room = rooms[roomCode];
         if (!room) return;
 
-        // Is it the Host?
+        // HOST RECONNECT
         if (room.hostClientID === clientID) {
             room.hostId = socket.id;
             socket.join(roomCode);
-            socket.emit('game_created', roomCode); // Restore host view
+            socket.emit('game_created', roomCode); 
             if(room.started) socket.emit('game_started');
-            updateHostLeaderboard(roomCode); // Send current board
+            updateHostLeaderboard(roomCode);
+            
+            // Sync Host Master Board History
+            if (room.calledNumbers.length > 0) {
+                socket.emit('number_drawn', { 
+                    number: room.calledNumbers[room.calledNumbers.length - 1], 
+                    history: room.calledNumbers 
+                });
+            }
             return;
         }
 
-        // Is it a Player?
+        // PLAYER RECONNECT
         const player = room.players.find(p => p.clientID === clientID);
         if (player) {
             player.id = socket.id;
             socket.join(roomCode);
-            // Restore state
-            socket.emit('joined_success', { roomCode, card: player.card });
+            
+            // Restore State (Card + Marks)
+            socket.emit('joined_success', { 
+                roomCode, 
+                card: player.card,
+                markedNumbers: player.markedNumbers // <--- RESTORE MARKS
+            });
+
             if (room.started) socket.emit('game_started');
             
-            // Sync history
             if (room.calledNumbers.length > 0) {
                 socket.emit('number_drawn', { 
                     number: room.calledNumbers[room.calledNumbers.length - 1], 
