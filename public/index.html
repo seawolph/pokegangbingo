@@ -280,7 +280,6 @@
     let myCardGrid = []; 
     
     // --- PERSISTENT IDENTITY ---
-    // Generate a permanent ID for this device so we can reconnect
     function getLocalClientID() {
         let id = localStorage.getItem('bingo_client_id');
         if (!id) {
@@ -292,7 +291,6 @@
     const myClientID = getLocalClientID();
 
     // --- RECONNECT LOGIC ---
-    // When socket connects (or reconnects), identify ourselves
     socket.on('connect', () => {
         if (myRoomCode) {
             console.log("Reconnecting to session...");
@@ -300,10 +298,8 @@
         }
     });
 
-    // Handle Mobile Background/Foreground switching
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
-            // Force a check when coming back to the tab
             if (myRoomCode && socket.connected) {
                 socket.emit('reconnect_session', { roomCode: myRoomCode, clientID: myClientID });
             }
@@ -338,7 +334,7 @@
         }
     }
 
-    function renderPlayerCard(cardGrid) {
+    function renderPlayerCard(cardGrid, markedNumbers = []) {
         myCardGrid = cardGrid; 
         const container = document.getElementById('bingo-card');
         container.innerHTML = '';
@@ -359,15 +355,25 @@
                 div.appendChild(img);
                 div.appendChild(span);
 
+                // Apply marks from server (or default free space)
                 if (num === 151) {
                     div.classList.add('marked');
                     div.classList.add('free-space'); 
-                } else {
+                } else if (markedNumbers.includes(num)) {
+                    div.classList.add('marked');
+                }
+                
+                // Allow clicking unless it's the free space (which is already done)
+                if (num !== 151) {
                     div.onclick = () => handleCardClick(div, num);
                 }
+                
                 container.appendChild(div);
             });
         });
+
+        // Check immediately after rendering (in case reconnecting with a winning card)
+        checkLocalBingo();
     }
 
     function handleCardClick(element, number) {
@@ -421,7 +427,6 @@
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
-        // Send clientID so host can reconnect too
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
 
@@ -429,8 +434,6 @@
         const name = document.getElementById('player-name').value;
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!name || !code) return showToast("Enter name and code");
-        
-        // Send clientID to identify device
         socket.emit('join_game', { roomCode: code, name: name, clientID: myClientID });
     }
 
@@ -453,7 +456,9 @@
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('room-code-display').innerText = `${data.roomCode}`;
-        renderPlayerCard(data.card);
+        
+        // Pass the marked numbers to the render function
+        renderPlayerCard(data.card, data.markedNumbers);
     });
 
     socket.on('player_count_update', (count) => {
@@ -473,13 +478,11 @@
     });
 
     socket.on('number_drawn', (data) => {
-        // If history is provided (sync), use it. Otherwise append.
         if (data.history) calledNumbers = data.history;
         else calledNumbers.push(data.number);
 
-        const num = data.number; // The last/current number
+        const num = data.number;
 
-        // Update Player View
         const display = document.getElementById('called-display');
         display.innerHTML = `
             <div style="font-size:50px; font-weight:800; color:var(--secondary); line-height:1;">${getBingoLabel(num)}</div>
@@ -487,14 +490,12 @@
         `;
         document.getElementById('last-calls').innerText = "History: " + calledNumbers.slice(-5).map(n => getBingoLabel(n)).join(', ');
 
-        // Update Host View (With Image)
         const hostDisplay = document.getElementById('host-current-call-display');
         hostDisplay.innerHTML = `
             <span style="font-size: 40px; margin-right: 15px;">${getBingoLabel(num)}</span>
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">
         `;
         
-        // Update master board dots (re-run loop to ensure sync)
         if (data.history) {
             data.history.forEach(n => {
                 const cell = document.getElementById(`master-${n}`);
