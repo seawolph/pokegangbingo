@@ -94,13 +94,13 @@
         .chart-label { margin-top: 10px; font-weight: 900; font-size: 20px; color: var(--orange-txt); }
         .chart-count { font-size: 14px; color: #888; margin-bottom: 5px; font-weight: bold; }
 
-        /* Vote Buttons: FLEXBOX CENTERING ADDED */
+        /* Vote Buttons */
         #vote-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
         .vote-btn { 
             width: 60px; height: 60px; border-radius: 50%; border: none; 
             font-size: 24px; font-weight: 900; color: white; cursor: pointer; 
             background: var(--secondary); transition: 0.2s; padding: 0;
-            display: flex; justify-content: center; align-items: center; /* PERFECT CENTERING */
+            display: flex; justify-content: center; align-items: center; 
         }
         .vote-btn:hover { transform: scale(1.1); background: var(--primary); }
 
@@ -376,7 +376,7 @@
     // --- VOTING LOGIC ---
     function startVote() { socket.emit('start_vote', myRoomCode); }
     function submitVote(letter) {
-        socket.emit('submit_vote', { roomCode: myRoomCode, letter });
+        socket.emit('submit_vote', { roomCode: myRoomCode, letter, clientID: myClientID });
         document.getElementById('vote-buttons').classList.add('hidden');
     }
 
@@ -455,32 +455,49 @@
     });
 
     // VOTING LISTENERS
-    socket.on('vote_started', () => {
+    socket.on('vote_started', (data) => {
         const modal = document.getElementById('vote-modal');
         const btns = document.getElementById('vote-buttons');
         const timer = document.getElementById('vote-timer');
         
-        ['B','I','N','G','O'].forEach(l => {
-            document.getElementById(`count-${l}`).innerText = '0';
-            document.getElementById(`bar-${l}`).style.height = '0%';
-        });
+        // Reset Chart if fresh start
+        if(!data.counts) {
+            ['B','I','N','G','O'].forEach(l => {
+                document.getElementById(`count-${l}`).innerText = '0';
+                document.getElementById(`bar-${l}`).style.height = '0%';
+            });
+        } else {
+            // Restore chart if reconnecting
+            const max = Math.max(...Object.values(data.counts));
+            ['B','I','N','G','O'].forEach(l => {
+                const count = data.counts[l];
+                document.getElementById(`count-${l}`).innerText = count;
+                const h = max > 0 ? (count / max) * 100 : 0;
+                document.getElementById(`bar-${l}`).style.height = `${h}%`;
+            });
+        }
 
         modal.classList.add('show');
-        timer.innerText = "30";
 
-        if (isHost) {
+        // Button Visibility Logic
+        if (isHost || (data.hasVoted)) {
             btns.classList.add('hidden');
         } else {
             btns.classList.remove('hidden');
         }
 
-        let seconds = 30;
+        // Timer Logic based on Server End Time
         if(voteTimerInterval) clearInterval(voteTimerInterval);
-        voteTimerInterval = setInterval(() => {
-            seconds--;
-            timer.innerText = seconds;
-            if(seconds <= 0) clearInterval(voteTimerInterval);
-        }, 1000);
+        
+        function updateTimer() {
+            const now = Date.now();
+            const remaining = Math.max(0, Math.ceil((data.endTime - now) / 1000));
+            timer.innerText = remaining;
+            if(remaining <= 0) clearInterval(voteTimerInterval);
+        }
+        
+        updateTimer(); // run once immediately
+        voteTimerInterval = setInterval(updateTimer, 1000);
     });
 
     socket.on('vote_update', (counts) => {
