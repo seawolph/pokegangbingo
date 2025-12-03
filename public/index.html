@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pokemon Bingo</title>
-    <!-- Modern Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Modern Font: Nunito (Better distinction between I and 1, very Pokemon-style) -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #FF5252; /* Poke Red */
@@ -18,7 +18,7 @@
         }
 
         body { 
-            font-family: 'Poppins', sans-serif; 
+            font-family: 'Nunito', sans-serif; 
             background-color: var(--bg); 
             color: var(--text-dark);
             text-align: center; 
@@ -28,7 +28,7 @@
         #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; }
         .hidden { display: none !important; }
 
-        h1 { color: var(--secondary); font-weight: 800; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
+        h1 { color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
         
         /* Cards */
         .card-container {
@@ -45,10 +45,10 @@
         input { 
             width: 80%; padding: 15px; font-size: 18px; margin: 10px 0; 
             border: 2px solid #eee; border-radius: 12px; outline: none; transition: 0.3s;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Nunito', sans-serif; font-weight: 700;
         }
         input:focus { border-color: var(--secondary); }
-        .code-input { text-transform: uppercase; letter-spacing: 5px; font-weight: bold; text-align: center; }
+        .code-input { text-transform: uppercase; letter-spacing: 5px; font-weight: 900; text-align: center; }
 
         /* Buttons */
         button { 
@@ -66,14 +66,14 @@
 
         /* --- LOBBY STYLES --- */
         .lobby-counter {
-            font-size: 80px; font-weight: 800; color: var(--secondary); margin: 20px 0;
+            font-size: 80px; font-weight: 900; color: var(--secondary); margin: 20px 0;
         }
-        .lobby-subtext { color: var(--text-light); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
+        .lobby-subtext { color: var(--text-light); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
 
         /* --- BINGO CARD --- */
         #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 5px; }
         .header-cell { 
-            background: var(--primary); color: white; font-weight: 800; font-size: 24px; 
+            background: var(--primary); color: white; font-weight: 900; font-size: 24px; 
             padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
@@ -88,11 +88,15 @@
         .bingo-cell:hover { transform: scale(1.05); z-index: 2; box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
         
         .bingo-cell img { width: 75%; height: auto; transition: opacity 0.3s; }
-        .bingo-cell span { font-size: 12px; font-weight: 800; color: var(--text-light); margin-top: 4px; }
+        .bingo-cell span { font-size: 13px; font-weight: 800; color: var(--text-light); margin-top: 4px; letter-spacing: -0.5px; }
         
         /* Marked State: Regular Cells */
-        .bingo-cell.marked:not(.free-space) { background-color: #FFF9C4; border-color: var(--accent); }
-        
+        .bingo-cell.marked:not(.free-space) { 
+            background-color: #FFF9C4; border-color: var(--accent); 
+            cursor: default; /* Show user it's locked */
+        }
+        .bingo-cell.marked:not(.free-space):hover { transform: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+
         /* Poke Ball Overlay (Only if NOT free space) */
         .bingo-cell.marked:not(.free-space)::after { 
             content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
@@ -105,7 +109,7 @@
         .bingo-cell.marked:not(.free-space) img { opacity: 0.3; }
 
         /* Free Space Specific Styles */
-        .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); }
+        .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.free-space img { opacity: 1; }
 
         /* --- CURRENT CALL --- */
@@ -127,14 +131,14 @@
         /* --- HOST DASHBOARD --- */
         #host-dashboard { display: grid; grid-template-columns: 350px 1fr; gap: 20px; text-align: left; }
         #master-board { display: grid; grid-template-columns: repeat(15, 1fr); gap: 2px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        .master-cell { font-size: 10px; background: #eee; text-align: center; padding: 4px 0; color: #aaa; border-radius: 2px; }
+        .master-cell { font-size: 11px; background: #eee; text-align: center; padding: 4px 0; color: #aaa; border-radius: 4px; font-weight: 700; }
         .master-cell.called { background: var(--secondary); color: white; font-weight: bold; }
 
         #leaderboard { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); height: fit-content; }
         .player-row { 
             border-bottom: 1px solid #f0f0f0; padding: 12px 0; display: flex; align-items: center; justify-content: space-between; 
         }
-        .player-info h4 { margin: 0; color: var(--text-dark); font-size: 16px; }
+        .player-info h4 { margin: 0; color: var(--text-dark); font-size: 16px; font-weight: 800; }
         .player-info p { margin: 0; color: var(--primary); font-weight: bold; font-size: 12px; }
         
         .mini-card { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; width: 50px; height: 50px; background: #eee; border-radius: 4px; overflow: hidden; }
@@ -156,7 +160,7 @@
             visibility: hidden; min-width: 250px; margin-left: -125px; 
             background-color: var(--text-dark); color: #fff; text-align: center; 
             border-radius: 50px; padding: 16px; position: fixed; z-index: 200; 
-            left: 50%; bottom: 30px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; 
+            left: 50%; bottom: 30px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; font-weight: 700;
         }
         #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
 
@@ -214,7 +218,7 @@
             <div id="host-controls" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 20px;">
                 <button class="btn-host" onclick="drawNumber()" style="padding: 15px 40px; font-size: 20px;">Draw Pokemon</button>
                 <!-- Host Display with Text + Image -->
-                <div id="host-current-call-display" style="display: flex; align-items: center; font-size: 24px; font-weight: bold; color: var(--secondary);">
+                <div id="host-current-call-display" style="display: flex; align-items: center; font-size: 24px; font-weight: 800; color: var(--secondary);">
                     Ready?
                 </div>
             </div>
@@ -234,7 +238,7 @@
         <!-- PLAYER VIEW -->
         <div id="player-view" class="hidden">
             <div id="current-call">
-                <div style="color: var(--text-light); text-transform: uppercase; font-size: 12px; font-weight: bold;">Current Call</div>
+                <div style="color: var(--text-light); text-transform: uppercase; font-size: 12px; font-weight: 800;">Current Call</div>
                 <div id="called-display" style="display: flex; align-items: center; justify-content: center; gap: 15px;">
                     <span style="font-size: 24px; color: #ccc;">Waiting for host...</span>
                 </div>
@@ -253,7 +257,7 @@
                 <div id="bingo-card"></div>
             </div>
 
-            <div id="last-calls" style="margin-top:20px; color:#aaa; font-size: 14px;">History: None</div>
+            <div id="last-calls" style="margin-top:20px; color:#aaa; font-size: 14px; font-weight: 700;">History: None</div>
         </div>
     </div>
 </div>
@@ -363,7 +367,7 @@
                     div.classList.add('marked');
                 }
                 
-                // Allow clicking unless it's the free space (which is already done)
+                // Allow clicking unless it's the free space OR ALREADY MARKED
                 if (num !== 151) {
                     div.onclick = () => handleCardClick(div, num);
                 }
@@ -372,18 +376,20 @@
             });
         });
 
-        // Check immediately after rendering (in case reconnecting with a winning card)
         checkLocalBingo();
     }
 
     function handleCardClick(element, number) {
+        // Prevent Un-marking: If already marked, do nothing.
+        if (element.classList.contains('marked')) return;
+
         if (calledNumbers.includes(number)) {
-            const isNowMarked = element.classList.toggle('marked');
+            element.classList.add('marked'); // Force ADD only
             
             socket.emit('mark_number', { 
                 roomCode: myRoomCode, 
                 number: number, 
-                isMarking: isNowMarked 
+                isMarking: true 
             });
 
             checkLocalBingo();
@@ -457,7 +463,6 @@
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('room-code-display').innerText = `${data.roomCode}`;
         
-        // Pass the marked numbers to the render function
         renderPlayerCard(data.card, data.markedNumbers);
     });
 
@@ -485,7 +490,7 @@
 
         const display = document.getElementById('called-display');
         display.innerHTML = `
-            <div style="font-size:50px; font-weight:800; color:var(--secondary); line-height:1;">${getBingoLabel(num)}</div>
+            <div style="font-size:50px; font-weight:900; color:var(--secondary); line-height:1;">${getBingoLabel(num)}</div>
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:100px">
         `;
         document.getElementById('last-calls').innerText = "History: " + calledNumbers.slice(-5).map(n => getBingoLabel(n)).join(', ');
