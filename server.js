@@ -83,7 +83,13 @@ io.on('connection', (socket) => {
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
             players: [], 
-            winner: null
+            winner: null,
+            // Voting State
+            voteData: {
+                active: false,
+                counts: { B: 0, I: 0, N: 0, G: 0, O: 0 },
+                voters: [] // list of socket ids or clientIDs who voted
+            }
         };
         
         socket.join(roomCode);
@@ -98,13 +104,108 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Standard Draw
     socket.on('draw_number', (roomCode) => {
+        drawNumberLogic(roomCode);
+    });
+
+    // Voting Logic
+    socket.on('start_vote', (roomCode) => {
         const room = rooms[roomCode];
-        if (room && room.hostId === socket.id && room.availableNumbers.length > 0 && !room.winner) {
-            const randomIndex = Math.floor(Math.random() * room.availableNumbers.length);
-            const number = room.availableNumbers[randomIndex];
+        if (!room || room.hostId !== socket.id || room.voteData.active) return;
+
+        // Reset Vote Data
+        room.voteData = {
+            active: true,
+            counts: { B: 0, I: 0, N: 0, G: 0, O: 0 },
+            voters: []
+        };
+
+        // Broadcast Start
+        io.to(roomCode).emit('vote_started');
+
+        // Start 30s Timer
+        setTimeout(() => {
+            endVoteAndDraw(roomCode);
+        }, 30000); // 30 seconds
+    });
+
+    socket.on('submit_vote', ({ roomCode, letter }) => {
+        const room = rooms[roomCode];
+        if (!room || !room.voteData.active) return;
+        
+        // Prevent double voting (simple check by socket ID)
+        if (room.voteData.voters.includes(socket.id)) return;
+
+        if (['B','I','N','G','O'].includes(letter)) {
+            room.voteData.counts[letter]++;
+            room.voteData.voters.push(socket.id);
+            // Broadcast update to show chart growth
+            io.to(roomCode).emit('vote_update', room.voteData.counts);
+        }
+    });
+
+    function endVoteAndDraw(roomCode) {
+        const room = rooms[roomCode];
+        if (!room || !room.voteData.active) return;
+
+        room.voteData.active = false;
+        
+        // Determine Winner
+        const counts = room.voteData.counts;
+        let winningLetter = null;
+        let maxVotes = -1;
+
+        // Simple max check
+        for (const [letter, count] of Object.entries(counts)) {
+            if (count > maxVotes) {
+                maxVotes = count;
+                winningLetter = letter;
+            } else if (count === maxVotes) {
+                // Tie breaker: random between the two? Or just keep first. 
+                // Let's stick with first found for simplicity or pick random if total votes = 0
+            }
+        }
+
+        // If no one voted, pick random
+        if (maxVotes === 0) winningLetter = null;
+
+        io.to(roomCode).emit('vote_ended', winningLetter); // Close modals
+
+        // Trigger Draw logic with filter
+        drawNumberLogic(roomCode, winningLetter);
+    }
+
+    function drawNumberLogic(roomCode, preferredLetter = null) {
+        const room = rooms[roomCode];
+        if (room && room.availableNumbers.length > 0 && !room.winner) {
             
-            room.availableNumbers.splice(randomIndex, 1);
+            let filteredPool = room.availableNumbers;
+
+            // Filter by letter if requested
+            if (preferredLetter) {
+                let min=1, max=150;
+                if (preferredLetter === 'B') { min=1; max=30; }
+                if (preferredLetter === 'I') { min=31; max=60; }
+                if (preferredLetter === 'N') { min=61; max=90; }
+                if (preferredLetter === 'G') { min=91; max=120; }
+                if (preferredLetter === 'O') { min=121; max=150; }
+
+                const letterSpecific = room.availableNumbers.filter(n => n >= min && n <= max);
+                
+                // If there are numbers left in that letter, use them. Otherwise fallback to full pool.
+                if (letterSpecific.length > 0) {
+                    filteredPool = letterSpecific;
+                }
+            }
+
+            const randomIndex = Math.floor(Math.random() * filteredPool.length);
+            const number = filteredPool[randomIndex];
+            
+            // Remove from main pool
+            const mainIndex = room.availableNumbers.indexOf(number);
+            if (mainIndex > -1) room.availableNumbers.splice(mainIndex, 1);
+            
             room.calledNumbers.push(number);
 
             io.to(roomCode).emit('number_drawn', { 
@@ -114,9 +215,9 @@ io.on('connection', (socket) => {
 
             updateHostLeaderboard(roomCode);
         }
-    });
+    }
 
-    // --- PLAYER EVENTS ---
+    // --- PLAYER EVENTS --- (Identical to before)
     socket.on('join_game', ({roomCode, name, clientID}) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
@@ -126,21 +227,22 @@ io.on('connection', (socket) => {
         if (existingPlayer) {
             existingPlayer.id = socket.id;
             socket.join(roomCode);
-            
-            // Send back CARD + MARKED NUMBERS
             socket.emit('joined_success', { 
                 roomCode, 
                 card: existingPlayer.card,
-                markedNumbers: existingPlayer.markedNumbers // <--- RESTORE MARKS
+                markedNumbers: existingPlayer.markedNumbers 
             });
-
             if(room.started) socket.emit('game_started');
-            
             if (room.calledNumbers.length > 0) {
                 socket.emit('number_drawn', { 
                     number: room.calledNumbers[room.calledNumbers.length - 1], 
                     history: room.calledNumbers 
                 });
+            }
+            // Send current vote status if active
+            if (room.voteData.active) {
+                socket.emit('vote_started'); 
+                socket.emit('vote_update', room.voteData.counts);
             }
             return;
         }
@@ -169,49 +271,48 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('player_count_update', room.players.length);
     });
 
-    // --- RECONNECT / SYNC EVENT ---
     socket.on('reconnect_session', ({ roomCode, clientID }) => {
         const room = rooms[roomCode];
         if (!room) return;
 
-        // HOST RECONNECT
         if (room.hostClientID === clientID) {
             room.hostId = socket.id;
             socket.join(roomCode);
             socket.emit('game_created', roomCode); 
             if(room.started) socket.emit('game_started');
             updateHostLeaderboard(roomCode);
-            
-            // Sync Host Master Board History
             if (room.calledNumbers.length > 0) {
                 socket.emit('number_drawn', { 
                     number: room.calledNumbers[room.calledNumbers.length - 1], 
                     history: room.calledNumbers 
                 });
             }
+            if (room.voteData.active) {
+                socket.emit('vote_started'); 
+                socket.emit('vote_update', room.voteData.counts);
+            }
             return;
         }
 
-        // PLAYER RECONNECT
         const player = room.players.find(p => p.clientID === clientID);
         if (player) {
             player.id = socket.id;
             socket.join(roomCode);
-            
-            // Restore State (Card + Marks)
             socket.emit('joined_success', { 
                 roomCode, 
                 card: player.card,
-                markedNumbers: player.markedNumbers // <--- RESTORE MARKS
+                markedNumbers: player.markedNumbers 
             });
-
             if (room.started) socket.emit('game_started');
-            
             if (room.calledNumbers.length > 0) {
                 socket.emit('number_drawn', { 
                     number: room.calledNumbers[room.calledNumbers.length - 1], 
                     history: room.calledNumbers 
                 });
+            }
+            if (room.voteData.active) {
+                socket.emit('vote_started'); 
+                socket.emit('vote_update', room.voteData.counts);
             }
         }
     });
@@ -219,33 +320,26 @@ io.on('connection', (socket) => {
     socket.on('mark_number', ({roomCode, number, isMarking}) => {
         const room = rooms[roomCode];
         if (!room) return;
-
         const player = room.players.find(p => p.id === socket.id);
         if (!player) return;
 
         if (isMarking) {
             if (room.calledNumbers.includes(number) || number === 151) {
-                if (!player.markedNumbers.includes(number)) {
-                    player.markedNumbers.push(number);
-                }
+                if (!player.markedNumbers.includes(number)) player.markedNumbers.push(number);
             }
         } else {
             player.markedNumbers = player.markedNumbers.filter(n => n !== number);
             if (!player.markedNumbers.includes(151)) player.markedNumbers.push(151);
         }
-
         updateHostLeaderboard(roomCode);
     });
 
     socket.on('claim_bingo', (roomCode) => {
         const room = rooms[roomCode];
         if (!room || room.winner) return;
-
         const player = room.players.find(p => p.id === socket.id);
         if (!player) return;
-
         const dist = calculateDistanceToBingo(player.card, player.markedNumbers);
-        
         if (dist === 0) {
             room.winner = player.name;
             io.to(roomCode).emit('game_over', player.name);
@@ -257,15 +351,12 @@ io.on('connection', (socket) => {
     function updateHostLeaderboard(roomCode) {
         const room = rooms[roomCode];
         if(!room) return;
-
         room.players.forEach(p => {
             p.toGo = calculateDistanceToBingo(p.card, p.markedNumbers);
         });
         room.players.sort((a, b) => a.toGo - b.toGo);
-
         const top10 = room.players.slice(0, 10);
         const hostSocket = io.sockets.sockets.get(room.hostId);
-        
         if(hostSocket) {
             hostSocket.emit('host_update', {
                 topPlayers: top10,
