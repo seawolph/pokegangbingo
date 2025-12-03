@@ -87,8 +87,9 @@ io.on('connection', (socket) => {
             // Voting State
             voteData: {
                 active: false,
+                endTime: 0, // NEW: Track end time
                 counts: { B: 0, I: 0, N: 0, G: 0, O: 0 },
-                voters: [] // list of socket ids or clientIDs who voted
+                voters: [] // Now stores clientIDs
             }
         };
         
@@ -104,7 +105,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Standard Draw
     socket.on('draw_number', (roomCode) => {
         drawNumberLogic(roomCode);
     });
@@ -114,33 +114,35 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room || room.hostId !== socket.id || room.voteData.active) return;
 
+        const duration = 30000; // 30 seconds
+        const endTime = Date.now() + duration;
+
         // Reset Vote Data
         room.voteData = {
             active: true,
+            endTime: endTime, // Store timestamp
             counts: { B: 0, I: 0, N: 0, G: 0, O: 0 },
             voters: []
         };
 
-        // Broadcast Start
-        io.to(roomCode).emit('vote_started');
+        // Broadcast Start with EndTime
+        io.to(roomCode).emit('vote_started', { endTime: endTime });
 
-        // Start 30s Timer
         setTimeout(() => {
             endVoteAndDraw(roomCode);
-        }, 30000); // 30 seconds
+        }, duration);
     });
 
-    socket.on('submit_vote', ({ roomCode, letter }) => {
+    socket.on('submit_vote', ({ roomCode, letter, clientID }) => {
         const room = rooms[roomCode];
         if (!room || !room.voteData.active) return;
         
-        // Prevent double voting (simple check by socket ID)
-        if (room.voteData.voters.includes(socket.id)) return;
+        // Prevent double voting using ClientID
+        if (room.voteData.voters.includes(clientID)) return;
 
         if (['B','I','N','G','O'].includes(letter)) {
             room.voteData.counts[letter]++;
-            room.voteData.voters.push(socket.id);
-            // Broadcast update to show chart growth
+            room.voteData.voters.push(clientID);
             io.to(roomCode).emit('vote_update', room.voteData.counts);
         }
     });
@@ -151,28 +153,19 @@ io.on('connection', (socket) => {
 
         room.voteData.active = false;
         
-        // Determine Winner
         const counts = room.voteData.counts;
         let winningLetter = null;
         let maxVotes = -1;
 
-        // Simple max check
         for (const [letter, count] of Object.entries(counts)) {
             if (count > maxVotes) {
                 maxVotes = count;
                 winningLetter = letter;
-            } else if (count === maxVotes) {
-                // Tie breaker: random between the two? Or just keep first. 
-                // Let's stick with first found for simplicity or pick random if total votes = 0
             }
         }
-
-        // If no one voted, pick random
         if (maxVotes === 0) winningLetter = null;
 
-        io.to(roomCode).emit('vote_ended', winningLetter); // Close modals
-
-        // Trigger Draw logic with filter
+        io.to(roomCode).emit('vote_ended', winningLetter);
         drawNumberLogic(roomCode, winningLetter);
     }
 
@@ -182,7 +175,6 @@ io.on('connection', (socket) => {
             
             let filteredPool = room.availableNumbers;
 
-            // Filter by letter if requested
             if (preferredLetter) {
                 let min=1, max=150;
                 if (preferredLetter === 'B') { min=1; max=30; }
@@ -192,8 +184,6 @@ io.on('connection', (socket) => {
                 if (preferredLetter === 'O') { min=121; max=150; }
 
                 const letterSpecific = room.availableNumbers.filter(n => n >= min && n <= max);
-                
-                // If there are numbers left in that letter, use them. Otherwise fallback to full pool.
                 if (letterSpecific.length > 0) {
                     filteredPool = letterSpecific;
                 }
@@ -202,7 +192,6 @@ io.on('connection', (socket) => {
             const randomIndex = Math.floor(Math.random() * filteredPool.length);
             const number = filteredPool[randomIndex];
             
-            // Remove from main pool
             const mainIndex = room.availableNumbers.indexOf(number);
             if (mainIndex > -1) room.availableNumbers.splice(mainIndex, 1);
             
@@ -217,7 +206,7 @@ io.on('connection', (socket) => {
         }
     }
 
-    // --- PLAYER EVENTS --- (Identical to before)
+    // --- PLAYER EVENTS ---
     socket.on('join_game', ({roomCode, name, clientID}) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
@@ -239,10 +228,14 @@ io.on('connection', (socket) => {
                     history: room.calledNumbers 
                 });
             }
-            // Send current vote status if active
+            // Check Vote Status for Rejoiner
             if (room.voteData.active) {
-                socket.emit('vote_started'); 
-                socket.emit('vote_update', room.voteData.counts);
+                const hasVoted = room.voteData.voters.includes(clientID);
+                socket.emit('vote_started', { 
+                    endTime: room.voteData.endTime,
+                    hasVoted: hasVoted,
+                    counts: room.voteData.counts
+                }); 
             }
             return;
         }
@@ -287,9 +280,12 @@ io.on('connection', (socket) => {
                     history: room.calledNumbers 
                 });
             }
+            // Host reconnect logic
             if (room.voteData.active) {
-                socket.emit('vote_started'); 
-                socket.emit('vote_update', room.voteData.counts);
+                socket.emit('vote_started', { 
+                    endTime: room.voteData.endTime,
+                    counts: room.voteData.counts
+                }); 
             }
             return;
         }
@@ -310,9 +306,14 @@ io.on('connection', (socket) => {
                     history: room.calledNumbers 
                 });
             }
+            // Player reconnect logic
             if (room.voteData.active) {
-                socket.emit('vote_started'); 
-                socket.emit('vote_update', room.voteData.counts);
+                const hasVoted = room.voteData.voters.includes(clientID);
+                socket.emit('vote_started', { 
+                    endTime: room.voteData.endTime,
+                    hasVoted: hasVoted,
+                    counts: room.voteData.counts
+                }); 
             }
         }
     });
