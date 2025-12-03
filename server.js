@@ -5,7 +5,10 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    pingTimeout: 60000, // Increase timeout to help with spotty mobile connections
+    cors: { origin: "*" }
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -69,7 +72,7 @@ function calculateDistanceToBingo(card, markedNumbers) {
 io.on('connection', (socket) => {
     
     // --- HOST EVENTS ---
-    socket.on('create_game', (password) => {
+    socket.on('create_game', ({ password, clientID }) => {
         if (password !== ADMIN_PASSWORD) {
             socket.emit('error_msg', 'Incorrect Admin Password');
             return;
@@ -78,6 +81,7 @@ io.on('connection', (socket) => {
         const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
         rooms[roomCode] = {
             hostId: socket.id,
+            hostClientID: clientID, // Persistent ID for host
             started: false,
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
@@ -116,15 +120,36 @@ io.on('connection', (socket) => {
     });
 
     // --- PLAYER EVENTS ---
-    socket.on('join_game', ({roomCode, name}) => {
+    socket.on('join_game', ({roomCode, name, clientID}) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
+
+        // 1. CHECK FOR REJOIN (Device ID match)
+        const existingPlayer = room.players.find(p => p.clientID === clientID);
+        if (existingPlayer) {
+            // Update the socket ID to the new connection
+            existingPlayer.id = socket.id;
+            socket.join(roomCode);
+            
+            // Send them back their card and current game state
+            socket.emit('joined_success', { roomCode, card: existingPlayer.card });
+            if(room.started) socket.emit('game_started');
+            
+            // Send current history so they sync up
+            socket.emit('number_drawn', { 
+                number: room.calledNumbers[room.calledNumbers.length - 1], 
+                history: room.calledNumbers 
+            });
+            return;
+        }
+
+        // 2. NEW PLAYER
         if (room.started) return socket.emit('error_msg', 'Game already started.');
 
         const myCard = generatePlayerCard();
-
         const playerObj = {
             id: socket.id,
+            clientID: clientID, // Store device ID
             name: name || `Player ${room.players.length + 1}`,
             card: myCard,
             markedNumbers: [151], 
@@ -135,9 +160,42 @@ io.on('connection', (socket) => {
         socket.join(roomCode);
 
         socket.emit('joined_success', { roomCode, card: myCard });
-        
-        // Broadcast new count to everyone in the room
         io.to(roomCode).emit('player_count_update', room.players.length);
+    });
+
+    // --- RECONNECT / SYNC EVENT ---
+    // Called when a mobile device wakes up
+    socket.on('reconnect_session', ({ roomCode, clientID }) => {
+        const room = rooms[roomCode];
+        if (!room) return;
+
+        // Is it the Host?
+        if (room.hostClientID === clientID) {
+            room.hostId = socket.id;
+            socket.join(roomCode);
+            socket.emit('game_created', roomCode); // Restore host view
+            if(room.started) socket.emit('game_started');
+            updateHostLeaderboard(roomCode); // Send current board
+            return;
+        }
+
+        // Is it a Player?
+        const player = room.players.find(p => p.clientID === clientID);
+        if (player) {
+            player.id = socket.id;
+            socket.join(roomCode);
+            // Restore state
+            socket.emit('joined_success', { roomCode, card: player.card });
+            if (room.started) socket.emit('game_started');
+            
+            // Sync history
+            if (room.calledNumbers.length > 0) {
+                socket.emit('number_drawn', { 
+                    number: room.calledNumbers[room.calledNumbers.length - 1], 
+                    history: room.calledNumbers 
+                });
+            }
+        }
     });
 
     socket.on('mark_number', ({roomCode, number, isMarking}) => {
@@ -185,7 +243,6 @@ io.on('connection', (socket) => {
         room.players.forEach(p => {
             p.toGo = calculateDistanceToBingo(p.card, p.markedNumbers);
         });
-
         room.players.sort((a, b) => a.toGo - b.toGo);
 
         const top10 = room.players.slice(0, 10);
