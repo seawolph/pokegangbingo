@@ -94,9 +94,14 @@
         .chart-label { margin-top: 10px; font-weight: 900; font-size: 20px; color: var(--orange-txt); }
         .chart-count { font-size: 14px; color: #888; margin-bottom: 5px; font-weight: bold; }
 
-        /* Vote Buttons */
+        /* Vote Buttons: FLEXBOX CENTERING ADDED */
         #vote-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-        .vote-btn { width: 60px; height: 60px; border-radius: 50%; border: none; font-size: 24px; font-weight: 900; color: white; cursor: pointer; background: var(--secondary); transition: 0.2s; }
+        .vote-btn { 
+            width: 60px; height: 60px; border-radius: 50%; border: none; 
+            font-size: 24px; font-weight: 900; color: white; cursor: pointer; 
+            background: var(--secondary); transition: 0.2s; padding: 0;
+            display: flex; justify-content: center; align-items: center; /* PERFECT CENTERING */
+        }
         .vote-btn:hover { transform: scale(1.1); background: var(--primary); }
 
         /* Toast */
@@ -372,7 +377,6 @@
     function startVote() { socket.emit('start_vote', myRoomCode); }
     function submitVote(letter) {
         socket.emit('submit_vote', { roomCode: myRoomCode, letter });
-        // Hide buttons for player immediately to show they voted
         document.getElementById('vote-buttons').classList.add('hidden');
     }
 
@@ -456,23 +460,20 @@
         const btns = document.getElementById('vote-buttons');
         const timer = document.getElementById('vote-timer');
         
-        // Reset Chart
         ['B','I','N','G','O'].forEach(l => {
             document.getElementById(`count-${l}`).innerText = '0';
             document.getElementById(`bar-${l}`).style.height = '0%';
         });
 
-        // UI State
         modal.classList.add('show');
         timer.innerText = "30";
 
         if (isHost) {
-            btns.classList.add('hidden'); // Host just watches chart
+            btns.classList.add('hidden');
         } else {
-            btns.classList.remove('hidden'); // Players see buttons
+            btns.classList.remove('hidden');
         }
 
-        // Timer Logic
         let seconds = 30;
         if(voteTimerInterval) clearInterval(voteTimerInterval);
         voteTimerInterval = setInterval(() => {
@@ -483,12 +484,10 @@
     });
 
     socket.on('vote_update', (counts) => {
-        // Find max for relative scaling
         const max = Math.max(...Object.values(counts));
         ['B','I','N','G','O'].forEach(l => {
             const count = counts[l];
             document.getElementById(`count-${l}`).innerText = count;
-            // Height is percentage of max (or 0 if max is 0)
             const h = max > 0 ? (count / max) * 100 : 0;
             document.getElementById(`bar-${l}`).style.height = `${h}%`;
         });
