@@ -15,6 +15,19 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
+// --- CENSOR LIST ---
+// Add any words you want to block here.
+const BAD_WORDS = ["badword", "hate", "stupid", "idiot"]; 
+
+function filterMessage(text) {
+    let filtered = text;
+    BAD_WORDS.forEach(word => {
+        const regex = new RegExp(word, "gi"); // Case insensitive
+        filtered = filtered.replace(regex, "****");
+    });
+    return filtered;
+}
+
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -145,9 +158,12 @@ io.on('connection', (socket) => {
             if (player) player.lastChatTime = now;
         }
 
+        // Apply Censor
+        const cleanMessage = filterMessage(message.substring(0, 100));
+
         const msgObj = {
             name: senderName,
-            text: message.substring(0, 100),
+            text: cleanMessage,
             isHost: isHost
         };
 
@@ -162,7 +178,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room || room.hostId !== socket.id || room.voteData.active) return;
 
-        const duration = 30000; 
+        const duration = 10000; // CHANGED TO 10 SECONDS
         const endTime = Date.now() + duration;
 
         room.voteData = {
