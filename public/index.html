@@ -21,6 +21,14 @@
         #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; padding-bottom: 200px; }
         .hidden { display: none !important; }
 
+        /* MUTE BUTTON */
+        #mute-btn {
+            position: fixed; top: 15px; right: 15px; z-index: 300;
+            background: rgba(255,255,255,0.8); border: 2px solid var(--text-dark);
+            border-radius: 50%; width: 40px; height: 40px; font-size: 20px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+
         h1 { color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
         .bingo-letter { color: var(--orange-txt); font-weight: 900; }
         .bingo-number { color: var(--secondary); font-weight: 900; }
@@ -144,12 +152,12 @@
         .chat-msg { margin-bottom: 4px; font-size: 13px; line-height: 1.4; }
         .chat-name { font-weight: 900; color: var(--secondary); margin-right: 5px; }
         .chat-host { color: var(--primary); }
+        .chat-system { font-weight: 900; color: #E65100; font-style: italic; }
         .chat-input-row { display: flex; gap: 10px; }
         #chat-input { margin: 0; flex-grow: 1; padding: 8px; font-size: 14px; }
         #chat-btn { margin: 0; padding: 8px 15px; font-size: 14px; min-width: 70px; }
         #chat-btn:disabled { background: #ccc; cursor: not-allowed; }
 
-        /* BAN HOVER FOR HOST */
         .host-viewing .chat-name:not(.chat-host):hover {
             color: red !important;
             text-decoration: line-through;
@@ -170,6 +178,9 @@
     </style>
 </head>
 <body>
+
+<!-- Mute Button -->
+<div id="mute-btn" onclick="toggleMute()">🔊</div>
 
 <div id="app">
     <h1>Pokemon Bingo</h1>
@@ -318,6 +329,34 @@
     let myCardGrid = []; 
     let voteTimerInterval = null;
     let isHost = false;
+    let isMuted = false;
+
+    // --- AUDIO LOGIC ---
+    function toggleMute() {
+        isMuted = !isMuted;
+        document.getElementById('mute-btn').innerText = isMuted ? '🔇' : '🔊';
+        unlockAudio();
+    }
+
+    function unlockAudio() {
+        const audio = new Audio();
+        audio.play().catch(() => {});
+    }
+
+    function playCry(num) {
+        if (isMuted) return;
+        const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${num}.ogg`);
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log("Cry Play failed:", e));
+    }
+
+    function playWinSound() {
+        if (isMuted) return;
+        const audio = new Audio('https://github.com/PokeAPI/cries/raw/main/cries/pokemon/latest/151.ogg'); 
+        const winAudio = new Audio('https://github.com/itsthatguy57/pokemon-sounds/raw/master/level_up.mp3');
+        winAudio.volume = 0.6;
+        winAudio.play().catch(e => console.log("Win sound failed:", e));
+    }
 
     function getLocalClientID() {
         let id = localStorage.getItem('bingo_client_id');
@@ -433,12 +472,14 @@
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
+        unlockAudio(); // Unlock audio context
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
     function joinGame() {
         const name = document.getElementById('player-name').value;
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!name || !code) return showToast("Enter name and code");
+        unlockAudio(); // Unlock audio context
         socket.emit('join_game', { roomCode: code, name: name, clientID: myClientID });
     }
     function startGame() { socket.emit('start_game', myRoomCode); }
@@ -482,27 +523,34 @@
         }, 1000);
     }
 
-    // BANNING LOGIC FOR HOST
     function appendChatMessage(msg) {
         const container = document.getElementById('chat-messages');
         const div = document.createElement('div');
         div.className = 'chat-msg';
         
-        const nameSpan = document.createElement('span');
-        nameSpan.className = msg.isHost ? 'chat-name chat-host' : 'chat-name';
-        nameSpan.innerText = msg.name + ': ';
-        
-        // Host Ban Interaction
-        if (isHost && !msg.isHost) {
-            nameSpan.title = "Click to BAN " + msg.name;
-            nameSpan.onclick = function() { confirmBan(msg.clientID, msg.name); };
+        if (msg.isSystem) {
+            div.innerHTML = `<span class="chat-system">${msg.text}</span>`;
+        } else {
+            const nameClass = msg.isHost ? 'chat-name chat-host' : 'chat-name';
+            // We use simple string for name to avoid HTML injection in name, but innerHTML for content 
+            // is okay here because we filtered on server. 
+            // ideally we construct elements.
+            const nameSpan = document.createElement('span');
+            nameSpan.className = nameClass;
+            nameSpan.innerText = msg.name + ': ';
+            
+            if (isHost && !msg.isHost) {
+                nameSpan.title = "Click to BAN " + msg.name;
+                nameSpan.onclick = function() { confirmBan(msg.clientID, msg.name); };
+            }
+
+            const textSpan = document.createElement('span');
+            textSpan.innerText = msg.text;
+
+            div.appendChild(nameSpan);
+            div.appendChild(textSpan);
         }
-
-        const textSpan = document.createElement('span');
-        textSpan.innerText = msg.text;
-
-        div.appendChild(nameSpan);
-        div.appendChild(textSpan);
+        
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
@@ -519,7 +567,7 @@
         let code = typeof data === 'string' ? data : data.roomCode;
         myRoomCode = code;
         isHost = true;
-        document.body.classList.add('host-viewing'); // CSS helper
+        document.body.classList.add('host-viewing');
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('host-lobby-controls').classList.remove('hidden'); 
@@ -547,6 +595,7 @@
 
     socket.on('chat_message', (msg) => { appendChatMessage(msg); });
     
+    // NEW: Full History Refresh (used for bans)
     socket.on('chat_history_update', (history) => {
         document.getElementById('chat-messages').innerHTML = '';
         history.forEach(appendChatMessage);
@@ -572,6 +621,7 @@
         if (data.history) calledNumbers = data.history;
         else {
             calledNumbers.push(data.number);
+            playCry(data.number);
         }
         const num = data.number;
         const formattedHTML = getBingoFormatted(num);
@@ -609,6 +659,7 @@
     });
 
     socket.on('game_over', (winnerName) => {
+        playWinSound(); 
         document.getElementById('winner-name').innerText = winnerName;
         document.getElementById('winner-screen').classList.add('show');
     });
