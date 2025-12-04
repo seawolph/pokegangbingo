@@ -1,4 +1,4 @@
-require('dotenv').config(); // Load secrets from .env file
+require('dotenv').config(); 
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
@@ -19,29 +19,27 @@ const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const CALLBACK_URL = process.env.CALLBACK_URL;
 
-// Session Middleware (MemoryStore is fine for simple usage)
 app.use(session({
     secret: 'super-secret-pokemon-key',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+    cookie: { maxAge: 24 * 60 * 60 * 1000 } 
 }));
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Passport Serialization
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-// Discord Strategy
 passport.use(new DiscordStrategy({
     clientID: DISCORD_CLIENT_ID,
     clientSecret: DISCORD_CLIENT_SECRET,
     callbackURL: CALLBACK_URL,
     scope: ['identify']
 }, (accessToken, refreshToken, profile, done) => {
-    process.nextTick(() => return done(null, profile));
+    // FIXED LINE BELOW: Removed 'return'
+    process.nextTick(() => done(null, profile));
 }));
 
 // --- AUTH ROUTES ---
@@ -50,7 +48,6 @@ app.get('/auth/discord', passport.authenticate('discord'));
 app.get('/auth/discord/callback', passport.authenticate('discord', {
     failureRedirect: '/'
 }), (req, res) => {
-    // Successful authentication, redirect home.
     res.redirect('/');
 });
 
@@ -68,7 +65,6 @@ app.get('/logout', (req, res) => {
     });
 });
 
-// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- GAME LOGIC ---
