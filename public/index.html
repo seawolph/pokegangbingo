@@ -18,8 +18,16 @@
         }
 
         body { font-family: 'Nunito', sans-serif; background-color: var(--bg); color: var(--text-dark); text-align: center; margin: 0; padding: 0; }
-        #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; padding-bottom: 200px; /* Adjusted space for smaller chat */ }
+        #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; padding-bottom: 200px; }
         .hidden { display: none !important; }
+
+        /* MUTE BUTTON */
+        #mute-btn {
+            position: fixed; top: 15px; right: 15px; z-index: 300;
+            background: rgba(255,255,255,0.8); border: 2px solid var(--text-dark);
+            border-radius: 50%; width: 40px; height: 40px; font-size: 20px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
 
         h1 { color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
         .bingo-letter { color: var(--orange-txt); font-weight: 900; }
@@ -81,7 +89,7 @@
         #winner-screen.show { display: flex; animation: fadeIn 0.5s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* VOTING MODAL */
+        /* VOTING MODAL - LOWER Z-INDEX than chat */
         #vote-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 150; display: none; flex-direction: column; justify-content: center; align-items: center; }
         #vote-modal.show { display: flex; animation: fadeIn 0.3s; }
         .vote-card { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 500px; text-align: center; }
@@ -102,11 +110,11 @@
         }
         .vote-btn:hover { transform: scale(1.1); background: var(--primary); }
 
-        /* CHAT SECTION */
+        /* CHAT SECTION - HIGHER Z-INDEX */
         #chat-section {
             position: fixed; bottom: 0; left: 0; width: 100%; 
             background: transparent;
-            z-index: 50;
+            z-index: 200; /* Above modal */
             transition: transform 0.3s ease;
         }
         
@@ -129,13 +137,10 @@
             box-sizing: border-box;
         }
 
-        /* Minimized State */
-        #chat-section.minimized #chat-content {
-            display: none;
-        }
+        #chat-section.minimized #chat-content { display: none; }
 
         #chat-messages {
-            height: 80px; /* SHOWS ~3 MESSAGES */
+            height: 80px; 
             overflow-y: auto; text-align: left; padding: 5px 10px;
             border: 1px solid #eee; border-radius: 10px; margin-bottom: 10px;
             background: #FAFAFA;
@@ -162,6 +167,9 @@
     </style>
 </head>
 <body>
+
+<!-- Mute Button -->
+<div id="mute-btn" onclick="toggleMute()">🔊</div>
 
 <div id="app">
     <h1>Pokemon Bingo</h1>
@@ -263,7 +271,7 @@
 <div id="vote-modal">
     <div class="vote-card">
         <h2 style="margin:0; color:var(--text-dark)">Vote Next Letter!</h2>
-        <div id="vote-timer" class="vote-timer">30</div>
+        <div id="vote-timer" class="vote-timer">10</div> <!-- Changed to 10 -->
         
         <div id="vote-buttons">
             <button class="vote-btn" onclick="submitVote('B')">B</button>
@@ -305,6 +313,28 @@
     let myCardGrid = []; 
     let voteTimerInterval = null;
     let isHost = false;
+    let isMuted = false;
+
+    // --- AUDIO LOGIC ---
+    function toggleMute() {
+        isMuted = !isMuted;
+        document.getElementById('mute-btn').innerText = isMuted ? '🔇' : '🔊';
+    }
+
+    function playCry(num) {
+        if (isMuted) return;
+        const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${num}.ogg`);
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log("Audio play failed (interaction needed):", e));
+    }
+
+    function playWinSound() {
+        if (isMuted) return;
+        // Placeholder link. Replace this with a direct link to your own "Level Up" mp3 if you have one.
+        const audio = new Audio('https://www.myinstants.com/media/sounds/level-up-pokemon.mp3');
+        audio.volume = 0.7;
+        audio.play().catch(e => console.log("Win sound failed:", e));
+    }
 
     function getLocalClientID() {
         let id = localStorage.getItem('bingo_client_id');
@@ -326,7 +356,6 @@
         }
     });
 
-    // FORMATTER WITH DASH
     function getBingoFormatted(num) {
         if (num === 151) return '<span style="color:var(--primary)">FREE</span>';
         let char = '';
@@ -438,7 +467,6 @@
         document.getElementById('vote-buttons').classList.add('hidden');
     }
 
-    // --- CHAT LOGIC ---
     function toggleChat() {
         const section = document.getElementById('chat-section');
         const icon = document.getElementById('chat-toggle-icon');
@@ -524,7 +552,11 @@
 
     socket.on('number_drawn', (data) => {
         if (data.history) calledNumbers = data.history;
-        else calledNumbers.push(data.number);
+        else {
+            calledNumbers.push(data.number);
+            // Only play sound if it's a NEW draw, not a reconnect sync
+            playCry(data.number);
+        }
         const num = data.number;
         const formattedHTML = getBingoFormatted(num);
         document.getElementById('called-display').innerHTML = `<div style="font-size:50px; line-height:1;">${formattedHTML}</div><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:100px">`;
@@ -561,6 +593,7 @@
     });
 
     socket.on('game_over', (winnerName) => {
+        playWinSound(); // PLAY WIN SOUND
         document.getElementById('winner-name').innerText = winnerName;
         document.getElementById('winner-screen').classList.add('show');
     });
