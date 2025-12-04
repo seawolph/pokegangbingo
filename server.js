@@ -60,21 +60,60 @@ function generatePlayerCard() {
     return grid;
 }
 
-// --- UPDATED: COVERALL LOGIC ---
-function calculateDistanceToBingo(card, markedNumbers) {
-    let missingCount = 0;
-    
-    // Iterate through every cell in the 5x5 grid
-    card.forEach(row => {
-        row.forEach(num => {
-            // Ignore free space (151), check if number is marked
-            if (num !== 151 && !markedNumbers.includes(num)) {
-                missingCount++;
-            }
-        });
-    });
+// --- UPDATED: MULTI-MODE LOGIC ---
+function calculateDistanceToBingo(card, markedNumbers, mode = 'standard') {
+    let minMissing = 25; // Default high
 
-    return missingCount; // Returns 0 only if ALL are marked
+    // Helper to check a specific set of numbers
+    const checkSet = (arr) => {
+        let missing = 0;
+        arr.forEach(num => {
+            if (num !== 151 && !markedNumbers.includes(num)) missing++;
+        });
+        return missing;
+    };
+
+    if (mode === 'coverall') {
+        // Must fill entire board
+        let missingCount = 0;
+        card.forEach(row => {
+            row.forEach(num => {
+                if (num !== 151 && !markedNumbers.includes(num)) missingCount++;
+            });
+        });
+        return missingCount;
+    } 
+    else if (mode === 'corners') {
+        // Top-Left, Top-Right, Bottom-Left, Bottom-Right
+        const corners = [
+            card[0][0], // Top Left
+            card[0][4], // Top Right
+            card[4][0], // Bottom Left
+            card[4][4]  // Bottom Right
+        ];
+        return checkSet(corners);
+    } 
+    else {
+        // STANDARD (Line or Diagonal)
+        minMissing = 5;
+        const checkLine = (line) => {
+            let m = checkSet(line);
+            if (m < minMissing) minMissing = m;
+        };
+
+        // Rows
+        for (let r = 0; r < 5; r++) checkLine(card[r]);
+        // Cols
+        for (let c = 0; c < 5; c++) {
+            let col = [card[0][c], card[1][c], card[2][c], card[3][c], card[4][c]];
+            checkLine(col);
+        }
+        // Diagonals
+        checkLine([card[0][0], card[1][1], card[2][2], card[3][3], card[4][4]]);
+        checkLine([card[0][4], card[1][3], card[2][2], card[3][1], card[4][0]]);
+
+        return minMissing;
+    }
 }
 
 io.on('connection', (socket) => {
@@ -91,6 +130,7 @@ io.on('connection', (socket) => {
             hostClientID: clientID,
             hostLastChat: 0,
             started: false,
+            gameMode: 'standard', // Default
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
             players: [], 
@@ -109,42 +149,38 @@ io.on('connection', (socket) => {
         socket.emit('game_created', roomCode);
     });
 
-    socket.on('start_game', (roomCode) => {
-        if (rooms[roomCode] && rooms[roomCode].hostId === socket.id) {
-            rooms[roomCode].started = true;
-            io.to(roomCode).emit('game_started');
+    // --- START GAME WITH MODE ---
+    socket.on('start_game', ({ roomCode, mode }) => {
+        const room = rooms[roomCode];
+        if (room && room.hostId === socket.id) {
+            room.started = true;
+            room.gameMode = mode || 'standard';
+            
+            // Broadcast start AND the selected mode
+            io.to(roomCode).emit('game_started', room.gameMode);
             updateHostLeaderboard(roomCode);
         }
     });
 
-    // --- UPDATED DRAW SECURITY ---
     socket.on('draw_number', (roomCode) => {
         const room = rooms[roomCode];
         if (!room) return;
 
-        // SECURITY CHECK: Is the caller the Host?
         if (room.hostId !== socket.id) {
-            // Find who sent it
             const cheater = room.players.find(p => p.id === socket.id);
             const cheaterName = cheater ? cheater.name : "Unknown User";
-
-            // Create Alert Message
             const alertMsg = {
                 name: "SYSTEM",
                 text: `⚠️ ALERT: ${cheaterName} tried to force a draw!`,
                 isHost: true,
-                isAlert: true // Special flag for Red text
+                isAlert: true 
             };
-
-            // Log and Broadcast
             room.chatHistory.push(alertMsg);
             if (room.chatHistory.length > 50) room.chatHistory.shift();
             io.to(roomCode).emit('chat_message', alertMsg);
-            
-            return; // STOP execution, do not draw
+            return; 
         }
 
-        // If host, proceed
         drawNumberLogic(roomCode);
     });
 
@@ -340,9 +376,10 @@ io.on('connection', (socket) => {
                 roomCode, 
                 card: existingPlayer.card,
                 markedNumbers: existingPlayer.markedNumbers,
-                chatHistory: room.chatHistory
+                chatHistory: room.chatHistory,
+                gameMode: room.gameMode // SEND MODE
             });
-            if(room.started) socket.emit('game_started');
+            if(room.started) socket.emit('game_started', room.gameMode);
             if (room.calledNumbers.length > 0) {
                 socket.emit('number_drawn', { 
                     number: room.calledNumbers[room.calledNumbers.length - 1], 
@@ -369,10 +406,13 @@ io.on('connection', (socket) => {
             name: name || `Player ${room.players.length + 1}`,
             card: myCard,
             markedNumbers: [151], 
-            toGo: 24, // UPDATED: Starts needing 24 (25 - free space)
+            toGo: 5, // Will update via leaderboard calc
             lastChatTime: 0
         };
 
+        // Calc initial distance based on default mode (standard) or current if set? 
+        // Players joining before start don't know mode yet, so 5 is fine placeholder.
+        
         room.players.push(playerObj);
         socket.join(roomCode);
 
@@ -380,7 +420,8 @@ io.on('connection', (socket) => {
             roomCode, 
             card: myCard,
             markedNumbers: [151],
-            chatHistory: room.chatHistory
+            chatHistory: room.chatHistory,
+            gameMode: room.gameMode
         });
         io.to(roomCode).emit('player_count_update', room.players.length);
     });
@@ -401,7 +442,7 @@ io.on('connection', (socket) => {
                 roomCode: roomCode,
                 chatHistory: room.chatHistory
             }); 
-            if(room.started) socket.emit('game_started');
+            if(room.started) socket.emit('game_started', room.gameMode);
             updateHostLeaderboard(roomCode);
             if (room.calledNumbers.length > 0) {
                 socket.emit('number_drawn', { 
@@ -426,9 +467,10 @@ io.on('connection', (socket) => {
                 roomCode, 
                 card: player.card,
                 markedNumbers: player.markedNumbers,
-                chatHistory: room.chatHistory
+                chatHistory: room.chatHistory,
+                gameMode: room.gameMode
             });
-            if (room.started) socket.emit('game_started');
+            if (room.started) socket.emit('game_started', room.gameMode);
             if (room.calledNumbers.length > 0) {
                 socket.emit('number_drawn', { 
                     number: room.calledNumbers[room.calledNumbers.length - 1], 
@@ -468,12 +510,15 @@ io.on('connection', (socket) => {
         if (!room || room.winner) return;
         const player = room.players.find(p => p.id === socket.id);
         if (!player) return;
-        const dist = calculateDistanceToBingo(player.card, player.markedNumbers);
+        
+        // Pass the mode to validation
+        const dist = calculateDistanceToBingo(player.card, player.markedNumbers, room.gameMode);
+        
         if (dist === 0) {
             room.winner = player.name;
             io.to(roomCode).emit('game_over', player.name);
         } else {
-            socket.emit('error_msg', 'False Bingo! You must mark ALL spaces to win.');
+            socket.emit('error_msg', 'False Bingo! Keep playing.');
         }
     });
 
@@ -481,7 +526,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if(!room) return;
         room.players.forEach(p => {
-            p.toGo = calculateDistanceToBingo(p.card, p.markedNumbers);
+            p.toGo = calculateDistanceToBingo(p.card, p.markedNumbers, room.gameMode);
         });
         room.players.sort((a, b) => a.toGo - b.toGo);
         const top10 = room.players.slice(0, 10);
