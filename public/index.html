@@ -18,7 +18,7 @@
         }
 
         body { font-family: 'Nunito', sans-serif; background-color: var(--bg); color: var(--text-dark); text-align: center; margin: 0; padding: 0; }
-        #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; padding-bottom: 300px; /* Space for chat */ }
+        #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; padding-bottom: 300px; }
         .hidden { display: none !important; }
 
         h1 { color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
@@ -130,7 +130,7 @@
         @media (max-width: 900px) { 
             #host-dashboard { grid-template-columns: 1fr; } 
             #master-board { grid-template-columns: repeat(10, 1fr); }
-            #app { padding-bottom: 250px; } /* Ensure content isn't hidden by chat */
+            #app { padding-bottom: 250px; } 
         }
     </style>
 </head>
@@ -293,7 +293,6 @@
         }
     });
 
-    // FORMATTER WITH DASH
     function getBingoFormatted(num) {
         if (num === 151) return '<span style="color:var(--primary)">FREE</span>';
         let char = '';
@@ -399,14 +398,12 @@
     function startGame() { socket.emit('start_game', myRoomCode); }
     function drawNumber() { socket.emit('draw_number', myRoomCode); }
     
-    // --- VOTING LOGIC ---
     function startVote() { socket.emit('start_vote', myRoomCode); }
     function submitVote(letter) {
         socket.emit('submit_vote', { roomCode: myRoomCode, letter, clientID: myClientID });
         document.getElementById('vote-buttons').classList.add('hidden');
     }
 
-    // --- CHAT LOGIC ---
     function handleChatEnter(e) { if(e.key === 'Enter') sendChat(); }
     
     function sendChat() {
@@ -418,7 +415,6 @@
         socket.emit('send_chat', { roomCode: myRoomCode, message: msg, clientID: myClientID });
         input.value = '';
 
-        // UI Slow Mode
         btn.disabled = true;
         let cd = 10;
         btn.innerText = cd;
@@ -446,7 +442,6 @@
     // --- SOCKET LISTENERS ---
 
     socket.on('game_created', (data) => {
-        // Handle direct code string OR object
         let code = typeof data === 'string' ? data : data.roomCode;
         myRoomCode = code;
         isHost = true;
@@ -454,10 +449,10 @@
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('host-lobby-controls').classList.remove('hidden'); 
         document.getElementById('room-code-display').innerText = `${code}`;
-        document.getElementById('chat-section').classList.remove('hidden'); // Show Chat
+        document.getElementById('chat-section').classList.remove('hidden'); // SHOW CHAT FOR HOST
         initMasterBoard();
         
-        // Load history if exists
+        document.getElementById('chat-messages').innerHTML = ''; // Clear existing
         if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
     });
 
@@ -467,17 +462,14 @@
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('room-code-display').innerText = `${data.roomCode}`;
-        document.getElementById('chat-section').classList.remove('hidden'); // Show Chat
+        document.getElementById('chat-section').classList.remove('hidden'); // SHOW CHAT FOR PLAYERS
         renderPlayerCard(data.card, data.markedNumbers);
 
-        // Load history
+        document.getElementById('chat-messages').innerHTML = ''; // Clear existing
         if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
     });
 
-    socket.on('chat_message', (msg) => {
-        appendChatMessage(msg);
-    });
-
+    socket.on('chat_message', (msg) => { appendChatMessage(msg); });
     socket.on('player_count_update', (count) => { document.getElementById('player-count-display').innerText = count; });
     socket.on('error_msg', (msg) => showToast(msg));
 
@@ -531,7 +523,6 @@
         document.getElementById('winner-screen').classList.add('show');
     });
 
-    // VOTING LISTENERS
     socket.on('vote_started', (data) => {
         const modal = document.getElementById('vote-modal');
         const btns = document.getElementById('vote-buttons');
