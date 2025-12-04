@@ -472,14 +472,12 @@
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
-        unlockAudio(); // Unlock audio context
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
     function joinGame() {
         const name = document.getElementById('player-name').value;
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!name || !code) return showToast("Enter name and code");
-        unlockAudio(); // Unlock audio context
         socket.emit('join_game', { roomCode: code, name: name, clientID: myClientID });
     }
     function startGame() { socket.emit('start_game', myRoomCode); }
@@ -501,8 +499,10 @@
     function handleChatEnter(e) { if(e.key === 'Enter') sendChat(); }
     
     function sendChat() {
-        const input = document.getElementById('chat-input');
         const btn = document.getElementById('chat-btn');
+        if (btn.disabled) return; 
+
+        const input = document.getElementById('chat-input');
         const msg = input.value.trim();
         if (!msg) return;
 
@@ -532,9 +532,6 @@
             div.innerHTML = `<span class="chat-system">${msg.text}</span>`;
         } else {
             const nameClass = msg.isHost ? 'chat-name chat-host' : 'chat-name';
-            // We use simple string for name to avoid HTML injection in name, but innerHTML for content 
-            // is okay here because we filtered on server. 
-            // ideally we construct elements.
             const nameSpan = document.createElement('span');
             nameSpan.className = nameClass;
             nameSpan.innerText = msg.name + ': ';
@@ -595,7 +592,6 @@
 
     socket.on('chat_message', (msg) => { appendChatMessage(msg); });
     
-    // NEW: Full History Refresh (used for bans)
     socket.on('chat_history_update', (history) => {
         document.getElementById('chat-messages').innerHTML = '';
         history.forEach(appendChatMessage);
