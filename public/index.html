@@ -18,7 +18,7 @@
         }
 
         body { font-family: 'Nunito', sans-serif; background-color: var(--bg); color: var(--text-dark); text-align: center; margin: 0; padding: 0; }
-        #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; }
+        #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; padding-bottom: 300px; /* Space for chat */ }
         .hidden { display: none !important; }
 
         h1 { color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
@@ -87,14 +87,12 @@
         .vote-card { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 500px; text-align: center; }
         .vote-timer { font-size: 40px; font-weight: 900; color: var(--primary); margin: 10px 0; }
         
-        /* Chart */
         #vote-chart { display: flex; justify-content: space-around; align-items: flex-end; height: 200px; margin-top: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         .chart-bar-container { display: flex; flex-direction: column; align-items: center; width: 15%; height: 100%; justify-content: flex-end; }
         .chart-bar { width: 100%; background: var(--secondary); border-radius: 8px 8px 0 0; transition: height 0.5s ease; min-height: 0px; }
         .chart-label { margin-top: 10px; font-weight: 900; font-size: 20px; color: var(--orange-txt); }
         .chart-count { font-size: 14px; color: #888; margin-bottom: 5px; font-weight: bold; }
 
-        /* Vote Buttons */
         #vote-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
         .vote-btn { 
             width: 60px; height: 60px; border-radius: 50%; border: none; 
@@ -103,6 +101,25 @@
             display: flex; justify-content: center; align-items: center; 
         }
         .vote-btn:hover { transform: scale(1.1); background: var(--primary); }
+
+        /* CHAT SECTION */
+        #chat-section {
+            position: fixed; bottom: 0; left: 0; width: 100%; background: white;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1); border-radius: 20px 20px 0 0;
+            padding: 10px; box-sizing: border-box; z-index: 50;
+        }
+        #chat-messages {
+            height: 150px; overflow-y: auto; text-align: left; padding: 10px;
+            border: 1px solid #eee; border-radius: 10px; margin-bottom: 10px;
+            background: #FAFAFA;
+        }
+        .chat-msg { margin-bottom: 8px; font-size: 14px; }
+        .chat-name { font-weight: 900; color: var(--secondary); margin-right: 5px; }
+        .chat-host { color: var(--primary); }
+        .chat-input-row { display: flex; gap: 10px; }
+        #chat-input { margin: 0; flex-grow: 1; padding: 10px; font-size: 14px; }
+        #chat-btn { margin: 0; padding: 10px 20px; font-size: 14px; min-width: 80px; }
+        #chat-btn:disabled { background: #ccc; cursor: not-allowed; }
 
         /* Toast */
         #toast { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: var(--text-dark); color: #fff; text-align: center; border-radius: 50px; padding: 16px; position: fixed; z-index: 200; left: 50%; bottom: 30px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; font-weight: 700; }
@@ -113,6 +130,7 @@
         @media (max-width: 900px) { 
             #host-dashboard { grid-template-columns: 1fr; } 
             #master-board { grid-template-columns: repeat(10, 1fr); }
+            #app { padding-bottom: 250px; } /* Ensure content isn't hidden by chat */
         }
     </style>
 </head>
@@ -199,13 +217,21 @@
     </div>
 </div>
 
+<!-- CHAT SECTION -->
+<div id="chat-section" class="hidden">
+    <div id="chat-messages"></div>
+    <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Say something..." onkeypress="handleChatEnter(event)">
+        <button id="chat-btn" class="btn-primary" onclick="sendChat()">Send</button>
+    </div>
+</div>
+
 <!-- VOTE MODAL -->
 <div id="vote-modal">
     <div class="vote-card">
         <h2 style="margin:0; color:var(--text-dark)">Vote Next Letter!</h2>
         <div id="vote-timer" class="vote-timer">30</div>
         
-        <!-- Interactive Buttons (Hidden for Host or after voting) -->
         <div id="vote-buttons">
             <button class="vote-btn" onclick="submitVote('B')">B</button>
             <button class="vote-btn" onclick="submitVote('I')">I</button>
@@ -214,7 +240,6 @@
             <button class="vote-btn" onclick="submitVote('O')">O</button>
         </div>
 
-        <!-- Chart (Visible to Host or after voting) -->
         <div id="vote-chart">
             <div class="chart-bar-container"><div class="chart-count" id="count-B">0</div><div class="chart-bar" id="bar-B" style="height: 0%;"></div><div class="chart-label">B</div></div>
             <div class="chart-bar-container"><div class="chart-count" id="count-I">0</div><div class="chart-bar" id="bar-I" style="height: 0%;"></div><div class="chart-label">I</div></div>
@@ -268,6 +293,7 @@
         }
     });
 
+    // FORMATTER WITH DASH
     function getBingoFormatted(num) {
         if (num === 151) return '<span style="color:var(--primary)">FREE</span>';
         let char = '';
@@ -276,7 +302,7 @@
         else if (num <= 90) char = 'N';
         else if (num <= 120) char = 'G';
         else char = 'O';
-        return `<span class="bingo-letter">${char}</span><span class="bingo-number">${num}</span>`;
+        return `<span class="bingo-letter">${char}</span>-<span class="bingo-number">${num}</span>`;
     }
 
     function showToast(htmlMessage) {
@@ -380,16 +406,59 @@
         document.getElementById('vote-buttons').classList.add('hidden');
     }
 
+    // --- CHAT LOGIC ---
+    function handleChatEnter(e) { if(e.key === 'Enter') sendChat(); }
+    
+    function sendChat() {
+        const input = document.getElementById('chat-input');
+        const btn = document.getElementById('chat-btn');
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        socket.emit('send_chat', { roomCode: myRoomCode, message: msg, clientID: myClientID });
+        input.value = '';
+
+        // UI Slow Mode
+        btn.disabled = true;
+        let cd = 10;
+        btn.innerText = cd;
+        const interval = setInterval(() => {
+            cd--;
+            btn.innerText = cd;
+            if(cd <= 0) {
+                clearInterval(interval);
+                btn.disabled = false;
+                btn.innerText = 'Send';
+            }
+        }, 1000);
+    }
+
+    function appendChatMessage(msg) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = 'chat-msg';
+        const nameClass = msg.isHost ? 'chat-name chat-host' : 'chat-name';
+        div.innerHTML = `<span class="${nameClass}">${msg.name}:</span> ${msg.text}`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
     // --- SOCKET LISTENERS ---
 
-    socket.on('game_created', (code) => {
+    socket.on('game_created', (data) => {
+        // Handle direct code string OR object
+        let code = typeof data === 'string' ? data : data.roomCode;
         myRoomCode = code;
         isHost = true;
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('host-lobby-controls').classList.remove('hidden'); 
         document.getElementById('room-code-display').innerText = `${code}`;
+        document.getElementById('chat-section').classList.remove('hidden'); // Show Chat
         initMasterBoard();
+        
+        // Load history if exists
+        if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
     });
 
     socket.on('joined_success', (data) => {
@@ -398,7 +467,15 @@
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('room-code-display').innerText = `${data.roomCode}`;
+        document.getElementById('chat-section').classList.remove('hidden'); // Show Chat
         renderPlayerCard(data.card, data.markedNumbers);
+
+        // Load history
+        if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
+    });
+
+    socket.on('chat_message', (msg) => {
+        appendChatMessage(msg);
     });
 
     socket.on('player_count_update', (count) => { document.getElementById('player-count-display').innerText = count; });
@@ -460,14 +537,12 @@
         const btns = document.getElementById('vote-buttons');
         const timer = document.getElementById('vote-timer');
         
-        // Reset Chart if fresh start
         if(!data.counts) {
             ['B','I','N','G','O'].forEach(l => {
                 document.getElementById(`count-${l}`).innerText = '0';
                 document.getElementById(`bar-${l}`).style.height = '0%';
             });
         } else {
-            // Restore chart if reconnecting
             const max = Math.max(...Object.values(data.counts));
             ['B','I','N','G','O'].forEach(l => {
                 const count = data.counts[l];
@@ -478,15 +553,9 @@
         }
 
         modal.classList.add('show');
+        if (isHost || (data.hasVoted)) btns.classList.add('hidden');
+        else btns.classList.remove('hidden');
 
-        // Button Visibility Logic
-        if (isHost || (data.hasVoted)) {
-            btns.classList.add('hidden');
-        } else {
-            btns.classList.remove('hidden');
-        }
-
-        // Timer Logic based on Server End Time
         if(voteTimerInterval) clearInterval(voteTimerInterval);
         
         function updateTimer() {
@@ -496,7 +565,7 @@
             if(remaining <= 0) clearInterval(voteTimerInterval);
         }
         
-        updateTimer(); // run once immediately
+        updateTimer();
         voteTimerInterval = setInterval(updateTimer, 1000);
     });
 
