@@ -15,15 +15,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
-// --- CENSOR LIST ---
-// Add any words you want to block here.
-const BAD_WORDS = ["badword", "hate", "stupid", "idiot"]; 
+// --- ROBUST CENSOR LIST ---
+const BAD_WORDS = [
+    "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
+    "cunt", "whore", "slut", "bitch", "bastard", "fuck", "shit", "asshole", "dick", 
+    "pussy", "cock", "hitler", "nazi", "rapist", "kill", "suicide"
+]; 
 
 function filterMessage(text) {
     let filtered = text;
     BAD_WORDS.forEach(word => {
-        const regex = new RegExp(word, "gi"); // Case insensitive
-        filtered = filtered.replace(regex, "****");
+        // \b ensures we don't censor "assassins" when filtering "ass"
+        // But for heavy slurs, we often want partial matches. 
+        // We will use a simple global replace for safety.
+        const regex = new RegExp(word, "gi"); 
+        filtered = filtered.replace(regex, "*".repeat(word.length));
     });
     return filtered;
 }
@@ -81,7 +87,6 @@ function calculateDistanceToBingo(card, markedNumbers) {
 
 io.on('connection', (socket) => {
     
-    // --- HOST EVENTS ---
     socket.on('create_game', ({ password, clientID }) => {
         if (password !== ADMIN_PASSWORD) {
             socket.emit('error_msg', 'Incorrect Admin Password');
@@ -123,7 +128,6 @@ io.on('connection', (socket) => {
         drawNumberLogic(roomCode);
     });
 
-    // --- CHAT LOGIC ---
     socket.on('send_chat', ({ roomCode, message, clientID }) => {
         const room = rooms[roomCode];
         if (!room) return;
@@ -178,7 +182,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room || room.hostId !== socket.id || room.voteData.active) return;
 
-        const duration = 10000; // CHANGED TO 10 SECONDS
+        const duration = 15000; // UPDATED TO 15 SECONDS
         const endTime = Date.now() + duration;
 
         room.voteData = {
@@ -266,7 +270,6 @@ io.on('connection', (socket) => {
         }
     }
 
-    // --- PLAYER EVENTS ---
     socket.on('join_game', ({roomCode, name, clientID}) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
