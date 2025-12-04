@@ -153,6 +153,8 @@
         .chat-name { font-weight: 900; color: var(--secondary); margin-right: 5px; }
         .chat-host { color: var(--primary); }
         .chat-system { font-weight: 900; color: #E65100; font-style: italic; }
+        .chat-alert { font-weight: 900; color: #FF0000; font-style: italic; background: #FFEBEE; padding: 2px 5px; border-radius: 4px; display: block; border: 1px solid red; }
+        
         .chat-input-row { display: flex; gap: 10px; }
         #chat-input { margin: 0; flex-grow: 1; padding: 8px; font-size: 14px; }
         #chat-btn { margin: 0; padding: 8px 15px; font-size: 14px; min-width: 70px; }
@@ -449,35 +451,42 @@
         }
     }
 
+    // UPDATED CHECK: Must cover all 24 numbers
     function checkLocalBingo() {
-        const isMarked = (num) => {
-            if(num === 151) return true;
-            const el = document.getElementById(`cell-${num}`);
-            return el && el.classList.contains('marked');
-        };
-        const checkLine = (line) => line.every(num => isMarked(num));
-        let hasBingo = false;
-        for (let r = 0; r < 5; r++) if (checkLine(myCardGrid[r])) hasBingo = true;
-        for (let c = 0; c < 5; c++) {
-            const col = [myCardGrid[0][c], myCardGrid[1][c], myCardGrid[2][c], myCardGrid[3][c], myCardGrid[4][c]];
-            if (checkLine(col)) hasBingo = true;
+        let allMarked = true;
+        
+        // Iterate every cell
+        for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 5; c++) {
+                const num = myCardGrid[r][c];
+                // Ignore free space (151)
+                if (num !== 151) {
+                    const el = document.getElementById(`cell-${num}`);
+                    if (!el || !el.classList.contains('marked')) {
+                        allMarked = false;
+                        break; 
+                    }
+                }
+            }
+            if (!allMarked) break;
         }
-        if(checkLine([myCardGrid[0][0], myCardGrid[1][1], myCardGrid[2][2], myCardGrid[3][3], myCardGrid[4][4]])) hasBingo = true;
-        if(checkLine([myCardGrid[0][4], myCardGrid[1][3], myCardGrid[2][2], myCardGrid[3][1], myCardGrid[4][0]])) hasBingo = true;
+
         const btn = document.getElementById('bingo-btn');
-        btn.style.display = hasBingo ? 'block' : 'none';
+        btn.style.display = allMarked ? 'block' : 'none';
     }
 
     function claimBingo() { socket.emit('claim_bingo', myRoomCode); }
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
+        unlockAudio(); // Unlock audio context
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
     function joinGame() {
         const name = document.getElementById('player-name').value;
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!name || !code) return showToast("Enter name and code");
+        unlockAudio(); // Unlock audio context
         socket.emit('join_game', { roomCode: code, name: name, clientID: myClientID });
     }
     function startGame() { socket.emit('start_game', myRoomCode); }
@@ -499,10 +508,8 @@
     function handleChatEnter(e) { if(e.key === 'Enter') sendChat(); }
     
     function sendChat() {
-        const btn = document.getElementById('chat-btn');
-        if (btn.disabled) return; 
-
         const input = document.getElementById('chat-input');
+        const btn = document.getElementById('chat-btn');
         const msg = input.value.trim();
         if (!msg) return;
 
@@ -528,7 +535,10 @@
         const div = document.createElement('div');
         div.className = 'chat-msg';
         
-        if (msg.isSystem) {
+        if (msg.isAlert) {
+            // RED ALERT BOX
+            div.innerHTML = `<span class="chat-alert">${msg.text}</span>`;
+        } else if (msg.isSystem) {
             div.innerHTML = `<span class="chat-system">${msg.text}</span>`;
         } else {
             const nameClass = msg.isHost ? 'chat-name chat-host' : 'chat-name';
