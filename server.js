@@ -17,8 +17,7 @@ const ADMIN_PASSWORD = "1qaz2wsx$";
 
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
-    "cunt", "whore", "slut", "bitch", "bastard", "fuck", "shit", "asshole", "dick", 
-    "pussy", "cock", "hitler", "nazi", "rapist", "kill", "suicide"
+    "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "kill", "suicide"
 ]; 
 
 function filterMessage(text) {
@@ -483,3 +482,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
+
