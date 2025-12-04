@@ -79,17 +79,18 @@ io.on('connection', (socket) => {
         rooms[roomCode] = {
             hostId: socket.id,
             hostClientID: clientID,
+            hostLastChat: 0, // Track host chat cooldown
             started: false,
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
             players: [], 
             winner: null,
-            // Voting State
+            chatHistory: [], // Store chat messages
             voteData: {
                 active: false,
-                endTime: 0, // NEW: Track end time
+                endTime: 0,
                 counts: { B: 0, I: 0, N: 0, G: 0, O: 0 },
-                voters: [] // Now stores clientIDs
+                voters: []
             }
         };
         
@@ -109,23 +110,76 @@ io.on('connection', (socket) => {
         drawNumberLogic(roomCode);
     });
 
-    // Voting Logic
+    // --- CHAT LOGIC ---
+    socket.on('send_chat', ({ roomCode, message, clientID }) => {
+        const room = rooms[roomCode];
+        if (!room) return;
+
+        // Determine who sent it (Host or Player)
+        let senderName = "Unknown";
+        let lastChatTime = 0;
+        let isHost = false;
+
+        // Check if Host
+        if (room.hostClientID === clientID) {
+            senderName = "HOST";
+            lastChatTime = room.hostLastChat;
+            isHost = true;
+        } else {
+            // Check if Player
+            const player = room.players.find(p => p.clientID === clientID);
+            if (player) {
+                senderName = player.name;
+                lastChatTime = player.lastChatTime || 0;
+            } else {
+                return; // Not a participant
+            }
+        }
+
+        // Check Cooldown (10 seconds)
+        const now = Date.now();
+        if (now - lastChatTime < 10000) {
+            socket.emit('error_msg', 'Slow mode: Please wait 10 seconds.');
+            return;
+        }
+
+        // Update timestamp
+        if (isHost) room.hostLastChat = now;
+        else {
+            const player = room.players.find(p => p.clientID === clientID);
+            if (player) player.lastChatTime = now;
+        }
+
+        // Create Message Object
+        const msgObj = {
+            name: senderName,
+            text: message.substring(0, 100), // Limit length
+            isHost: isHost
+        };
+
+        // Add to history (Limit to last 50 messages to save memory)
+        room.chatHistory.push(msgObj);
+        if (room.chatHistory.length > 50) room.chatHistory.shift();
+
+        // Broadcast to room
+        io.to(roomCode).emit('chat_message', msgObj);
+    });
+
+    // --- VOTING LOGIC ---
     socket.on('start_vote', (roomCode) => {
         const room = rooms[roomCode];
         if (!room || room.hostId !== socket.id || room.voteData.active) return;
 
-        const duration = 30000; // 30 seconds
+        const duration = 30000; 
         const endTime = Date.now() + duration;
 
-        // Reset Vote Data
         room.voteData = {
             active: true,
-            endTime: endTime, // Store timestamp
+            endTime: endTime,
             counts: { B: 0, I: 0, N: 0, G: 0, O: 0 },
             voters: []
         };
 
-        // Broadcast Start with EndTime
         io.to(roomCode).emit('vote_started', { endTime: endTime });
 
         setTimeout(() => {
@@ -136,8 +190,6 @@ io.on('connection', (socket) => {
     socket.on('submit_vote', ({ roomCode, letter, clientID }) => {
         const room = rooms[roomCode];
         if (!room || !room.voteData.active) return;
-        
-        // Prevent double voting using ClientID
         if (room.voteData.voters.includes(clientID)) return;
 
         if (['B','I','N','G','O'].includes(letter)) {
@@ -219,7 +271,8 @@ io.on('connection', (socket) => {
             socket.emit('joined_success', { 
                 roomCode, 
                 card: existingPlayer.card,
-                markedNumbers: existingPlayer.markedNumbers 
+                markedNumbers: existingPlayer.markedNumbers,
+                chatHistory: room.chatHistory // SEND CHAT HISTORY
             });
             if(room.started) socket.emit('game_started');
             if (room.calledNumbers.length > 0) {
@@ -228,7 +281,6 @@ io.on('connection', (socket) => {
                     history: room.calledNumbers 
                 });
             }
-            // Check Vote Status for Rejoiner
             if (room.voteData.active) {
                 const hasVoted = room.voteData.voters.includes(clientID);
                 socket.emit('vote_started', { 
@@ -250,7 +302,8 @@ io.on('connection', (socket) => {
             name: name || `Player ${room.players.length + 1}`,
             card: myCard,
             markedNumbers: [151], 
-            toGo: 5
+            toGo: 5,
+            lastChatTime: 0
         };
 
         room.players.push(playerObj);
@@ -259,7 +312,8 @@ io.on('connection', (socket) => {
         socket.emit('joined_success', { 
             roomCode, 
             card: myCard,
-            markedNumbers: [151]
+            markedNumbers: [151],
+            chatHistory: room.chatHistory // SEND CHAT HISTORY
         });
         io.to(roomCode).emit('player_count_update', room.players.length);
     });
@@ -271,7 +325,10 @@ io.on('connection', (socket) => {
         if (room.hostClientID === clientID) {
             room.hostId = socket.id;
             socket.join(roomCode);
-            socket.emit('game_created', roomCode); 
+            socket.emit('game_created', {
+                roomCode: roomCode,
+                chatHistory: room.chatHistory // Host gets chat too
+            }); 
             if(room.started) socket.emit('game_started');
             updateHostLeaderboard(roomCode);
             if (room.calledNumbers.length > 0) {
@@ -280,7 +337,6 @@ io.on('connection', (socket) => {
                     history: room.calledNumbers 
                 });
             }
-            // Host reconnect logic
             if (room.voteData.active) {
                 socket.emit('vote_started', { 
                     endTime: room.voteData.endTime,
@@ -297,7 +353,8 @@ io.on('connection', (socket) => {
             socket.emit('joined_success', { 
                 roomCode, 
                 card: player.card,
-                markedNumbers: player.markedNumbers 
+                markedNumbers: player.markedNumbers,
+                chatHistory: room.chatHistory // SEND CHAT HISTORY
             });
             if (room.started) socket.emit('game_started');
             if (room.calledNumbers.length > 0) {
@@ -306,7 +363,6 @@ io.on('connection', (socket) => {
                     history: room.calledNumbers 
                 });
             }
-            // Player reconnect logic
             if (room.voteData.active) {
                 const hasVoted = room.voteData.voters.includes(clientID);
                 socket.emit('vote_started', { 
