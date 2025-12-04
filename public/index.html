@@ -15,6 +15,7 @@
             --surface: #FFFFFF;
             --text-dark: #2C3E50;
             --text-light: #7F8C8D;
+            --discord: #5865F2;
         }
 
         body { font-family: 'Nunito', sans-serif; background-color: var(--bg); color: var(--text-dark); text-align: center; margin: 0; padding: 0; }
@@ -45,8 +46,10 @@
         .btn-primary { background: var(--secondary); color: white; box-shadow: 0 4px 15px rgba(59, 76, 202, 0.4); }
         .btn-accent { background: var(--accent); color: var(--secondary); box-shadow: 0 4px 15px rgba(255, 203, 5, 0.4); }
         .btn-host { background: var(--primary); color: white; box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4); }
-        button:hover { transform: translateY(-3px); }
-        button:active { transform: translateY(1px); }
+        .btn-discord { background: var(--discord); color: white; text-decoration: none; display: inline-block; box-shadow: 0 4px 15px rgba(88, 101, 242, 0.4); }
+        
+        button:hover, .btn-discord:hover { transform: translateY(-3px); }
+        button:active, .btn-discord:active { transform: translateY(1px); }
 
         .lobby-counter { font-size: 80px; font-weight: 900; color: var(--secondary); margin: 20px 0; }
         .lobby-subtext { color: var(--text-light); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
@@ -191,6 +194,7 @@
 
     <!-- Landing Screen -->
     <div id="landing-screen">
+        <!-- HOST CARD -->
         <div class="card-container">
             <h3 style="color: var(--secondary);">Host a Game</h3>
             <input type="password" id="admin-pass" placeholder="Admin Password">
@@ -198,12 +202,28 @@
             <button class="btn-host" onclick="createGame()">Create Session</button>
         </div>
         
+        <!-- PLAYER CARD -->
         <div class="card-container">
             <h3 style="color: var(--primary);">Join a Game</h3>
-            <input type="text" id="player-name" placeholder="Your Nickname">
-            <input type="text" id="join-code" class="code-input" placeholder="Room Code">
-            <br>
-            <button class="btn-primary" onclick="joinGame()">Join Game</button>
+            
+            <!-- Default View: Show Login Button -->
+            <div id="login-section">
+                <p style="color: #666; margin-bottom: 20px;">Please log in to play.</p>
+                <a href="/auth/discord" class="btn-discord" style="padding: 15px 30px; border-radius: 50px; font-weight: 800;">
+                    Login with Discord
+                </a>
+            </div>
+
+            <!-- Logged In View: Show Join Inputs -->
+            <div id="join-section" class="hidden">
+                <p id="welcome-msg" style="color: var(--secondary); font-weight: 800; font-size: 18px; margin-bottom: 10px;"></p>
+                <input type="text" id="join-code" class="code-input" placeholder="Room Code">
+                <br>
+                <button class="btn-primary" onclick="joinGame()">Join Game</button>
+                <div style="margin-top: 15px;">
+                    <a href="/logout" style="color: #888; font-size: 12px; text-decoration: none;">Logout</a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -218,7 +238,6 @@
             <p style="color: #888;">Waiting for host to start...</p>
             
             <div id="host-lobby-controls" class="hidden">
-                <!-- NEW MODE SELECTOR -->
                 <select id="game-mode">
                     <option value="standard">Standard (Line/Diagonal)</option>
                     <option value="coverall">Coverall (Blackout)</option>
@@ -341,7 +360,28 @@
     let voteTimerInterval = null;
     let isHost = false;
     let isMuted = false;
-    let currentGameMode = 'standard'; // Default
+    let currentGameMode = 'standard';
+    let currentUserName = null; // Store fetched username
+
+    // CHECK AUTH ON LOAD
+    window.onload = function() {
+        fetch('/auth/me')
+            .then(res => res.json())
+            .then(data => {
+                if (data.user) {
+                    // Logged in
+                    currentUserName = data.user.username;
+                    document.getElementById('login-section').classList.add('hidden');
+                    document.getElementById('join-section').classList.remove('hidden');
+                    document.getElementById('welcome-msg').innerText = `Welcome, ${currentUserName}`;
+                } else {
+                    // Not logged in
+                    document.getElementById('login-section').classList.remove('hidden');
+                    document.getElementById('join-section').classList.add('hidden');
+                }
+            })
+            .catch(err => console.error("Auth check failed", err));
+    };
 
     // --- AUDIO LOGIC ---
     function toggleMute() {
@@ -461,12 +501,10 @@
         }
     }
 
-    // --- UPDATED CHECK BINGO (MULTI-MODE) ---
     function checkLocalBingo() {
         let hasBingo = false;
 
         if (currentGameMode === 'coverall') {
-            // Must have ALL squares marked (except free space which is always marked)
             let allMarked = true;
             for (let r = 0; r < 5; r++) {
                 for (let c = 0; c < 5; c++) {
@@ -484,26 +522,17 @@
             hasBingo = allMarked;
         } 
         else if (currentGameMode === 'corners') {
-            // Check [0][0], [0][4], [4][0], [4][4]
-            const corners = [
-                myCardGrid[0][0], myCardGrid[0][4],
-                myCardGrid[4][0], myCardGrid[4][4]
-            ];
-            
-            // Helper
+            const corners = [myCardGrid[0][0], myCardGrid[0][4], myCardGrid[4][0], myCardGrid[4][4]];
             const isMarked = (n) => document.getElementById(`cell-${n}`).classList.contains('marked');
-            
             if (corners.every(isMarked)) hasBingo = true;
         } 
         else {
-            // STANDARD (Line/Diag)
             const isMarked = (num) => {
                 if(num === 151) return true;
                 const el = document.getElementById(`cell-${num}`);
                 return el && el.classList.contains('marked');
             };
             const checkLine = (line) => line.every(num => isMarked(num));
-            
             for (let r = 0; r < 5; r++) if (checkLine(myCardGrid[r])) hasBingo = true;
             for (let c = 0; c < 5; c++) {
                 const col = [myCardGrid[0][c], myCardGrid[1][c], myCardGrid[2][c], myCardGrid[3][c], myCardGrid[4][c]];
@@ -521,17 +550,20 @@
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
-        unlockAudio(); // Unlock audio context
+        unlockAudio(); 
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
+    
+    // UPDATED JOIN
     function joinGame() {
-        const name = document.getElementById('player-name').value;
+        // No input reading, use currentUserName
+        if(!currentUserName) return showToast("Please login first");
         const code = document.getElementById('join-code').value.toUpperCase();
-        if(!name || !code) return showToast("Enter name and code");
-        unlockAudio(); // Unlock audio context
-        socket.emit('join_game', { roomCode: code, name: name, clientID: myClientID });
+        if(!code) return showToast("Enter room code");
+        unlockAudio(); 
+        socket.emit('join_game', { roomCode: code, name: currentUserName, clientID: myClientID });
     }
-    // Updated: Send Mode
+
     function startGame() { 
         const mode = document.getElementById('game-mode').value;
         socket.emit('start_game', { roomCode: myRoomCode, mode: mode }); 
@@ -634,7 +666,7 @@
     socket.on('joined_success', (data) => {
         myRoomCode = data.roomCode;
         isHost = false;
-        if(data.gameMode) currentGameMode = data.gameMode; // Store Mode
+        if(data.gameMode) currentGameMode = data.gameMode; 
 
         document.body.classList.remove('host-viewing');
         document.getElementById('landing-screen').classList.add('hidden');
@@ -663,7 +695,6 @@
     socket.on('player_count_update', (count) => { document.getElementById('player-count-display').innerText = count; });
     socket.on('error_msg', (msg) => showToast(msg));
 
-    // START: Receive Mode
     socket.on('game_started', (mode) => {
         if(mode) currentGameMode = mode;
         document.getElementById('lobby-screen').classList.add('hidden');
