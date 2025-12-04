@@ -89,7 +89,7 @@
         #winner-screen.show { display: flex; animation: fadeIn 0.5s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* VOTING MODAL - LOWER Z-INDEX than chat */
+        /* VOTING MODAL - Z-INDEX 150 */
         #vote-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 150; display: none; flex-direction: column; justify-content: center; align-items: center; }
         #vote-modal.show { display: flex; animation: fadeIn 0.3s; }
         .vote-card { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 500px; text-align: center; }
@@ -110,11 +110,11 @@
         }
         .vote-btn:hover { transform: scale(1.1); background: var(--primary); }
 
-        /* CHAT SECTION - HIGHER Z-INDEX */
+        /* CHAT SECTION - Z-INDEX 200 (ABOVE VOTING) */
         #chat-section {
             position: fixed; bottom: 0; left: 0; width: 100%; 
             background: transparent;
-            z-index: 200; /* Above modal */
+            z-index: 200; 
             transition: transform 0.3s ease;
         }
         
@@ -271,7 +271,7 @@
 <div id="vote-modal">
     <div class="vote-card">
         <h2 style="margin:0; color:var(--text-dark)">Vote Next Letter!</h2>
-        <div id="vote-timer" class="vote-timer">10</div> <!-- Changed to 10 -->
+        <div id="vote-timer" class="vote-timer">15</div> <!-- Updated to 15s display -->
         
         <div id="vote-buttons">
             <button class="vote-btn" onclick="submitVote('B')">B</button>
@@ -319,21 +319,34 @@
     function toggleMute() {
         isMuted = !isMuted;
         document.getElementById('mute-btn').innerText = isMuted ? '🔇' : '🔊';
+        // Initialize Audio Context on click to unlock sound
+        unlockAudio();
+    }
+
+    // Helper to unlock audio on first interaction
+    function unlockAudio() {
+        const audio = new Audio();
+        audio.play().catch(() => {});
     }
 
     function playCry(num) {
         if (isMuted) return;
         const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${num}.ogg`);
         audio.volume = 0.5;
-        audio.play().catch(e => console.log("Audio play failed (interaction needed):", e));
+        audio.play().catch(e => console.log("Cry Play failed:", e));
     }
 
     function playWinSound() {
         if (isMuted) return;
-        // Placeholder link. Replace this with a direct link to your own "Level Up" mp3 if you have one.
-        const audio = new Audio('https://www.myinstants.com/media/sounds/level-up-pokemon.mp3');
-        audio.volume = 0.7;
-        audio.play().catch(e => console.log("Win sound failed:", e));
+        // GitHub hosted MP3 for stability
+        const audio = new Audio('https://github.com/PokeAPI/cries/raw/main/cries/pokemon/latest/151.ogg'); 
+        // Fallback: Using a reliable short victory sound or Mew's cry as placeholder if needed
+        // For actual "Level Up", you can use: 
+        // const audio = new Audio('https://github.com/itsthatguy57/pokemon-sounds/blob/master/level_up.mp3?raw=true');
+        // Let's use the raw github link for level up:
+        const winAudio = new Audio('https://github.com/itsthatguy57/pokemon-sounds/raw/master/level_up.mp3');
+        winAudio.volume = 0.6;
+        winAudio.play().catch(e => console.log("Win sound failed:", e));
     }
 
     function getLocalClientID() {
@@ -450,12 +463,14 @@
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
+        unlockAudio(); // Unlock audio context
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
     function joinGame() {
         const name = document.getElementById('player-name').value;
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!name || !code) return showToast("Enter name and code");
+        unlockAudio(); // Unlock audio context
         socket.emit('join_game', { roomCode: code, name: name, clientID: myClientID });
     }
     function startGame() { socket.emit('start_game', myRoomCode); }
@@ -554,7 +569,6 @@
         if (data.history) calledNumbers = data.history;
         else {
             calledNumbers.push(data.number);
-            // Only play sound if it's a NEW draw, not a reconnect sync
             playCry(data.number);
         }
         const num = data.number;
