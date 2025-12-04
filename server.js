@@ -60,25 +60,21 @@ function generatePlayerCard() {
     return grid;
 }
 
+// --- UPDATED: COVERALL LOGIC ---
 function calculateDistanceToBingo(card, markedNumbers) {
-    let minMissing = 5;
-    const checkLine = (line) => {
-        let missing = 0;
-        line.forEach(num => {
-            if (!markedNumbers.includes(num)) missing++;
+    let missingCount = 0;
+    
+    // Iterate through every cell in the 5x5 grid
+    card.forEach(row => {
+        row.forEach(num => {
+            // Ignore free space (151), check if number is marked
+            if (num !== 151 && !markedNumbers.includes(num)) {
+                missingCount++;
+            }
         });
-        if (missing < minMissing) minMissing = missing;
-    };
+    });
 
-    for (let r = 0; r < 5; r++) checkLine(card[r]);
-    for (let c = 0; c < 5; c++) {
-        let col = [card[0][c], card[1][c], card[2][c], card[3][c], card[4][c]];
-        checkLine(col);
-    }
-    checkLine([card[0][0], card[1][1], card[2][2], card[3][3], card[4][4]]);
-    checkLine([card[0][4], card[1][3], card[2][2], card[3][1], card[4][0]]);
-
-    return minMissing;
+    return missingCount; // Returns 0 only if ALL are marked
 }
 
 io.on('connection', (socket) => {
@@ -121,7 +117,34 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- UPDATED DRAW SECURITY ---
     socket.on('draw_number', (roomCode) => {
+        const room = rooms[roomCode];
+        if (!room) return;
+
+        // SECURITY CHECK: Is the caller the Host?
+        if (room.hostId !== socket.id) {
+            // Find who sent it
+            const cheater = room.players.find(p => p.id === socket.id);
+            const cheaterName = cheater ? cheater.name : "Unknown User";
+
+            // Create Alert Message
+            const alertMsg = {
+                name: "SYSTEM",
+                text: `⚠️ ALERT: ${cheaterName} tried to force a draw!`,
+                isHost: true,
+                isAlert: true // Special flag for Red text
+            };
+
+            // Log and Broadcast
+            room.chatHistory.push(alertMsg);
+            if (room.chatHistory.length > 50) room.chatHistory.shift();
+            io.to(roomCode).emit('chat_message', alertMsg);
+            
+            return; // STOP execution, do not draw
+        }
+
+        // If host, proceed
         drawNumberLogic(roomCode);
     });
 
@@ -174,12 +197,10 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('chat_message', msgObj);
     });
 
-    // --- BAN PLAYER LOGIC ---
     socket.on('ban_player', ({ roomCode, targetClientID }) => {
         const room = rooms[roomCode];
         if (!room) return;
 
-        // Security Check: Only Host can ban
         if (room.hostId !== socket.id) return;
         if (targetClientID === room.hostClientID) return;
 
@@ -187,7 +208,6 @@ io.on('connection', (socket) => {
 
         let bannedName = "A player";
 
-        // Remove from players list
         const playerIndex = room.players.findIndex(p => p.clientID === targetClientID);
         if (playerIndex !== -1) {
             const player = room.players[playerIndex];
@@ -196,10 +216,8 @@ io.on('connection', (socket) => {
             room.players.splice(playerIndex, 1);
         }
 
-        // Clean Chat History
         room.chatHistory = room.chatHistory.filter(msg => msg.clientID !== targetClientID);
 
-        // Add System Message
         const sysMsg = {
             name: "SYSTEM",
             text: `${bannedName} was banned by the Host.`,
@@ -208,13 +226,11 @@ io.on('connection', (socket) => {
         };
         room.chatHistory.push(sysMsg);
 
-        // Broadcast Updates
         io.to(roomCode).emit('chat_history_update', room.chatHistory); 
         io.to(roomCode).emit('player_count_update', room.players.length);
         updateHostLeaderboard(roomCode);
     });
 
-    // --- VOTING LOGIC ---
     socket.on('start_vote', (roomCode) => {
         const room = rooms[roomCode];
         if (!room || room.hostId !== socket.id || room.voteData.active) return;
@@ -353,7 +369,7 @@ io.on('connection', (socket) => {
             name: name || `Player ${room.players.length + 1}`,
             card: myCard,
             markedNumbers: [151], 
-            toGo: 5,
+            toGo: 24, // UPDATED: Starts needing 24 (25 - free space)
             lastChatTime: 0
         };
 
@@ -457,7 +473,7 @@ io.on('connection', (socket) => {
             room.winner = player.name;
             io.to(roomCode).emit('game_over', player.name);
         } else {
-            socket.emit('error_msg', 'False Bingo! You do not have 5 in a row yet.');
+            socket.emit('error_msg', 'False Bingo! You must mark ALL spaces to win.');
         }
     });
 
