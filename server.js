@@ -1,7 +1,11 @@
+require('dotenv').config(); // Load secrets from .env file
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
 const path = require('path');
+const session = require('express-session');
+const passport = require('passport');
+const DiscordStrategy = require('passport-discord').Strategy;
 
 const app = express();
 const server = http.createServer(app);
@@ -10,12 +14,67 @@ const io = new Server(server, {
     cors: { origin: "*" }
 });
 
+// --- DISCORD AUTH CONFIGURATION ---
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const CALLBACK_URL = process.env.CALLBACK_URL;
+
+// Session Middleware (MemoryStore is fine for simple usage)
+app.use(session({
+    secret: 'super-secret-pokemon-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Passport Serialization
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
+
+// Discord Strategy
+passport.use(new DiscordStrategy({
+    clientID: DISCORD_CLIENT_ID,
+    clientSecret: DISCORD_CLIENT_SECRET,
+    callbackURL: CALLBACK_URL,
+    scope: ['identify']
+}, (accessToken, refreshToken, profile, done) => {
+    process.nextTick(() => return done(null, profile));
+}));
+
+// --- AUTH ROUTES ---
+app.get('/auth/discord', passport.authenticate('discord'));
+
+app.get('/auth/discord/callback', passport.authenticate('discord', {
+    failureRedirect: '/'
+}), (req, res) => {
+    // Successful authentication, redirect home.
+    res.redirect('/');
+});
+
+app.get('/auth/me', (req, res) => {
+    if (req.isAuthenticated()) {
+        res.json({ user: req.user });
+    } else {
+        res.json({ user: null });
+    }
+});
+
+app.get('/logout', (req, res) => {
+    req.logout(() => {
+        res.redirect('/');
+    });
+});
+
+// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- GAME LOGIC ---
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
-// --- ROBUST CENSOR LIST ---
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
     "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay"
@@ -60,11 +119,9 @@ function generatePlayerCard() {
     return grid;
 }
 
-// --- UPDATED: MULTI-MODE LOGIC ---
 function calculateDistanceToBingo(card, markedNumbers, mode = 'standard') {
-    let minMissing = 25; // Default high
+    let minMissing = 25; 
 
-    // Helper to check a specific set of numbers
     const checkSet = (arr) => {
         let missing = 0;
         arr.forEach(num => {
@@ -74,7 +131,6 @@ function calculateDistanceToBingo(card, markedNumbers, mode = 'standard') {
     };
 
     if (mode === 'coverall') {
-        // Must fill entire board
         let missingCount = 0;
         card.forEach(row => {
             row.forEach(num => {
@@ -84,34 +140,22 @@ function calculateDistanceToBingo(card, markedNumbers, mode = 'standard') {
         return missingCount;
     } 
     else if (mode === 'corners') {
-        // Top-Left, Top-Right, Bottom-Left, Bottom-Right
-        const corners = [
-            card[0][0], // Top Left
-            card[0][4], // Top Right
-            card[4][0], // Bottom Left
-            card[4][4]  // Bottom Right
-        ];
+        const corners = [ card[0][0], card[0][4], card[4][0], card[4][4] ];
         return checkSet(corners);
     } 
     else {
-        // STANDARD (Line or Diagonal)
         minMissing = 5;
         const checkLine = (line) => {
             let m = checkSet(line);
             if (m < minMissing) minMissing = m;
         };
-
-        // Rows
         for (let r = 0; r < 5; r++) checkLine(card[r]);
-        // Cols
         for (let c = 0; c < 5; c++) {
             let col = [card[0][c], card[1][c], card[2][c], card[3][c], card[4][c]];
             checkLine(col);
         }
-        // Diagonals
         checkLine([card[0][0], card[1][1], card[2][2], card[3][3], card[4][4]]);
         checkLine([card[0][4], card[1][3], card[2][2], card[3][1], card[4][0]]);
-
         return minMissing;
     }
 }
@@ -130,33 +174,25 @@ io.on('connection', (socket) => {
             hostClientID: clientID,
             hostLastChat: 0,
             started: false,
-            gameMode: 'standard', // Default
+            gameMode: 'standard', 
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
             players: [], 
             bannedClients: [], 
             winner: null,
             chatHistory: [],
-            voteData: {
-                active: false,
-                endTime: 0,
-                counts: { B: 0, I: 0, N: 0, G: 0, O: 0 },
-                voters: []
-            }
+            voteData: { active: false, endTime: 0, counts: { B: 0, I: 0, N: 0, G: 0, O: 0 }, voters: [] }
         };
         
         socket.join(roomCode);
         socket.emit('game_created', roomCode);
     });
 
-    // --- START GAME WITH MODE ---
     socket.on('start_game', ({ roomCode, mode }) => {
         const room = rooms[roomCode];
         if (room && room.hostId === socket.id) {
             room.started = true;
             room.gameMode = mode || 'standard';
-            
-            // Broadcast start AND the selected mode
             io.to(roomCode).emit('game_started', room.gameMode);
             updateHostLeaderboard(roomCode);
         }
@@ -180,7 +216,6 @@ io.on('connection', (socket) => {
             io.to(roomCode).emit('chat_message', alertMsg);
             return; 
         }
-
         drawNumberLogic(roomCode);
     });
 
@@ -243,7 +278,6 @@ io.on('connection', (socket) => {
         room.bannedClients.push(targetClientID);
 
         let bannedName = "A player";
-
         const playerIndex = room.players.findIndex(p => p.clientID === targetClientID);
         if (playerIndex !== -1) {
             const player = room.players[playerIndex];
@@ -253,7 +287,6 @@ io.on('connection', (socket) => {
         }
 
         room.chatHistory = room.chatHistory.filter(msg => msg.clientID !== targetClientID);
-
         const sysMsg = {
             name: "SYSTEM",
             text: `${bannedName} was banned by the Host.`,
@@ -377,7 +410,7 @@ io.on('connection', (socket) => {
                 card: existingPlayer.card,
                 markedNumbers: existingPlayer.markedNumbers,
                 chatHistory: room.chatHistory,
-                gameMode: room.gameMode // SEND MODE
+                gameMode: room.gameMode
             });
             if(room.started) socket.emit('game_started', room.gameMode);
             if (room.calledNumbers.length > 0) {
@@ -406,13 +439,10 @@ io.on('connection', (socket) => {
             name: name || `Player ${room.players.length + 1}`,
             card: myCard,
             markedNumbers: [151], 
-            toGo: 5, // Will update via leaderboard calc
+            toGo: 5,
             lastChatTime: 0
         };
 
-        // Calc initial distance based on default mode (standard) or current if set? 
-        // Players joining before start don't know mode yet, so 5 is fine placeholder.
-        
         room.players.push(playerObj);
         socket.join(roomCode);
 
@@ -511,7 +541,6 @@ io.on('connection', (socket) => {
         const player = room.players.find(p => p.id === socket.id);
         if (!player) return;
         
-        // Pass the mode to validation
         const dist = calculateDistanceToBingo(player.card, player.markedNumbers, room.gameMode);
         
         if (dist === 0) {
