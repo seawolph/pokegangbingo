@@ -79,13 +79,13 @@ io.on('connection', (socket) => {
         rooms[roomCode] = {
             hostId: socket.id,
             hostClientID: clientID,
-            hostLastChat: 0, // Track host chat cooldown
+            hostLastChat: 0,
             started: false,
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
             players: [], 
             winner: null,
-            chatHistory: [], // Store chat messages
+            chatHistory: [],
             voteData: {
                 active: false,
                 endTime: 0,
@@ -115,53 +115,45 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room) return;
 
-        // Determine who sent it (Host or Player)
         let senderName = "Unknown";
         let lastChatTime = 0;
         let isHost = false;
 
-        // Check if Host
         if (room.hostClientID === clientID) {
             senderName = "HOST";
             lastChatTime = room.hostLastChat;
             isHost = true;
         } else {
-            // Check if Player
             const player = room.players.find(p => p.clientID === clientID);
             if (player) {
                 senderName = player.name;
                 lastChatTime = player.lastChatTime || 0;
             } else {
-                return; // Not a participant
+                return;
             }
         }
 
-        // Check Cooldown (10 seconds)
         const now = Date.now();
         if (now - lastChatTime < 10000) {
             socket.emit('error_msg', 'Slow mode: Please wait 10 seconds.');
             return;
         }
 
-        // Update timestamp
         if (isHost) room.hostLastChat = now;
         else {
             const player = room.players.find(p => p.clientID === clientID);
             if (player) player.lastChatTime = now;
         }
 
-        // Create Message Object
         const msgObj = {
             name: senderName,
-            text: message.substring(0, 100), // Limit length
+            text: message.substring(0, 100),
             isHost: isHost
         };
 
-        // Add to history (Limit to last 50 messages to save memory)
         room.chatHistory.push(msgObj);
         if (room.chatHistory.length > 50) room.chatHistory.shift();
 
-        // Broadcast to room
         io.to(roomCode).emit('chat_message', msgObj);
     });
 
@@ -263,7 +255,6 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
 
-        // 1. REJOIN
         const existingPlayer = room.players.find(p => p.clientID === clientID);
         if (existingPlayer) {
             existingPlayer.id = socket.id;
@@ -272,7 +263,7 @@ io.on('connection', (socket) => {
                 roomCode, 
                 card: existingPlayer.card,
                 markedNumbers: existingPlayer.markedNumbers,
-                chatHistory: room.chatHistory // SEND CHAT HISTORY
+                chatHistory: room.chatHistory
             });
             if(room.started) socket.emit('game_started');
             if (room.calledNumbers.length > 0) {
@@ -292,7 +283,6 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // 2. NEW PLAYER
         if (room.started) return socket.emit('error_msg', 'Game already started.');
 
         const myCard = generatePlayerCard();
@@ -313,7 +303,7 @@ io.on('connection', (socket) => {
             roomCode, 
             card: myCard,
             markedNumbers: [151],
-            chatHistory: room.chatHistory // SEND CHAT HISTORY
+            chatHistory: room.chatHistory
         });
         io.to(roomCode).emit('player_count_update', room.players.length);
     });
@@ -327,7 +317,7 @@ io.on('connection', (socket) => {
             socket.join(roomCode);
             socket.emit('game_created', {
                 roomCode: roomCode,
-                chatHistory: room.chatHistory // Host gets chat too
+                chatHistory: room.chatHistory
             }); 
             if(room.started) socket.emit('game_started');
             updateHostLeaderboard(roomCode);
@@ -354,7 +344,7 @@ io.on('connection', (socket) => {
                 roomCode, 
                 card: player.card,
                 markedNumbers: player.markedNumbers,
-                chatHistory: room.chatHistory // SEND CHAT HISTORY
+                chatHistory: room.chatHistory
             });
             if (room.started) socket.emit('game_started');
             if (room.calledNumbers.length > 0) {
