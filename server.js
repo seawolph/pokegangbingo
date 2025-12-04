@@ -25,9 +25,6 @@ const BAD_WORDS = [
 function filterMessage(text) {
     let filtered = text;
     BAD_WORDS.forEach(word => {
-        // \b ensures we don't censor "assassins" when filtering "ass"
-        // But for heavy slurs, we often want partial matches. 
-        // We will use a simple global replace for safety.
         const regex = new RegExp(word, "gi"); 
         filtered = filtered.replace(regex, "*".repeat(word.length));
     });
@@ -102,6 +99,7 @@ io.on('connection', (socket) => {
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
             players: [], 
+            bannedClients: [], // NEW: Track banned IDs
             winner: null,
             chatHistory: [],
             voteData: {
@@ -162,13 +160,13 @@ io.on('connection', (socket) => {
             if (player) player.lastChatTime = now;
         }
 
-        // Apply Censor
         const cleanMessage = filterMessage(message.substring(0, 100));
 
         const msgObj = {
             name: senderName,
             text: cleanMessage,
-            isHost: isHost
+            isHost: isHost,
+            clientID: clientID // Store ID so host can ban
         };
 
         room.chatHistory.push(msgObj);
@@ -177,12 +175,43 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('chat_message', msgObj);
     });
 
+    // --- BAN PLAYER LOGIC ---
+    socket.on('ban_player', ({ roomCode, targetClientID }) => {
+        const room = rooms[roomCode];
+        if (!room) return;
+
+        // Security Check: Only Host can ban
+        if (room.hostId !== socket.id) return;
+
+        // Cannot ban yourself
+        if (targetClientID === room.hostClientID) return;
+
+        // 1. Add to ban list
+        room.bannedClients.push(targetClientID);
+
+        // 2. Remove from players list & Notify target
+        const playerIndex = room.players.findIndex(p => p.clientID === targetClientID);
+        if (playerIndex !== -1) {
+            const player = room.players[playerIndex];
+            io.to(player.id).emit('banned'); // Tell user they are banned
+            room.players.splice(playerIndex, 1);
+        }
+
+        // 3. Clean Chat History (Remove messages from this user)
+        room.chatHistory = room.chatHistory.filter(msg => msg.clientID !== targetClientID);
+
+        // 4. Broadcast Updates
+        io.to(roomCode).emit('chat_history_update', room.chatHistory); // Refresh chat for everyone
+        io.to(roomCode).emit('player_count_update', room.players.length);
+        updateHostLeaderboard(roomCode);
+    });
+
     // --- VOTING LOGIC ---
     socket.on('start_vote', (roomCode) => {
         const room = rooms[roomCode];
         if (!room || room.hostId !== socket.id || room.voteData.active) return;
 
-        const duration = 15000; // UPDATED TO 15 SECONDS
+        const duration = 15000; 
         const endTime = Date.now() + duration;
 
         room.voteData = {
@@ -274,6 +303,12 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
 
+        // CHECK BAN LIST
+        if (room.bannedClients.includes(clientID)) {
+            socket.emit('banned');
+            return;
+        }
+
         const existingPlayer = room.players.find(p => p.clientID === clientID);
         if (existingPlayer) {
             existingPlayer.id = socket.id;
@@ -330,6 +365,12 @@ io.on('connection', (socket) => {
     socket.on('reconnect_session', ({ roomCode, clientID }) => {
         const room = rooms[roomCode];
         if (!room) return;
+
+        // CHECK BAN LIST ON RECONNECT
+        if (room.bannedClients.includes(clientID)) {
+            socket.emit('banned');
+            return;
+        }
 
         if (room.hostClientID === clientID) {
             room.hostId = socket.id;
