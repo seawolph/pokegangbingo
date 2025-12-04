@@ -15,7 +15,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
-// --- ROBUST CENSOR LIST ---
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
     "cunt", "whore", "slut", "bitch", "bastard", "fuck", "shit", "asshole", "dick", 
@@ -99,7 +98,7 @@ io.on('connection', (socket) => {
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
             players: [], 
-            bannedClients: [], // NEW: Track banned IDs
+            bannedClients: [], 
             winner: null,
             chatHistory: [],
             voteData: {
@@ -166,7 +165,7 @@ io.on('connection', (socket) => {
             name: senderName,
             text: cleanMessage,
             isHost: isHost,
-            clientID: clientID // Store ID so host can ban
+            clientID: clientID
         };
 
         room.chatHistory.push(msgObj);
@@ -182,26 +181,35 @@ io.on('connection', (socket) => {
 
         // Security Check: Only Host can ban
         if (room.hostId !== socket.id) return;
-
-        // Cannot ban yourself
         if (targetClientID === room.hostClientID) return;
 
-        // 1. Add to ban list
         room.bannedClients.push(targetClientID);
 
-        // 2. Remove from players list & Notify target
+        let bannedName = "A player";
+
+        // Remove from players list
         const playerIndex = room.players.findIndex(p => p.clientID === targetClientID);
         if (playerIndex !== -1) {
             const player = room.players[playerIndex];
-            io.to(player.id).emit('banned'); // Tell user they are banned
+            bannedName = player.name;
+            io.to(player.id).emit('banned'); 
             room.players.splice(playerIndex, 1);
         }
 
-        // 3. Clean Chat History (Remove messages from this user)
+        // Clean Chat History
         room.chatHistory = room.chatHistory.filter(msg => msg.clientID !== targetClientID);
 
-        // 4. Broadcast Updates
-        io.to(roomCode).emit('chat_history_update', room.chatHistory); // Refresh chat for everyone
+        // Add System Message about the ban
+        const sysMsg = {
+            name: "SYSTEM",
+            text: `${bannedName} was banned by the Host.`,
+            isHost: true,
+            isSystem: true // New flag for styling
+        };
+        room.chatHistory.push(sysMsg);
+
+        // Broadcast Updates
+        io.to(roomCode).emit('chat_history_update', room.chatHistory); 
         io.to(roomCode).emit('player_count_update', room.players.length);
         updateHostLeaderboard(roomCode);
     });
@@ -303,7 +311,6 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
 
-        // CHECK BAN LIST
         if (room.bannedClients.includes(clientID)) {
             socket.emit('banned');
             return;
@@ -366,7 +373,6 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room) return;
 
-        // CHECK BAN LIST ON RECONNECT
         if (room.bannedClients.includes(clientID)) {
             socket.emit('banned');
             return;
