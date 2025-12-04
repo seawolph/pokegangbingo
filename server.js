@@ -15,6 +15,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
+// --- ROBUST CENSOR LIST ---
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
     "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay"
@@ -198,12 +199,12 @@ io.on('connection', (socket) => {
         // Clean Chat History
         room.chatHistory = room.chatHistory.filter(msg => msg.clientID !== targetClientID);
 
-        // Add System Message about the ban
+        // Add System Message
         const sysMsg = {
             name: "SYSTEM",
             text: `${bannedName} was banned by the Host.`,
             isHost: true,
-            isSystem: true // New flag for styling
+            isSystem: true 
         };
         room.chatHistory.push(sysMsg);
 
@@ -482,7 +483,3 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
-
-
-
-
