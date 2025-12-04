@@ -21,14 +21,6 @@
         #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; padding-bottom: 200px; }
         .hidden { display: none !important; }
 
-        /* MUTE BUTTON */
-        #mute-btn {
-            position: fixed; top: 15px; right: 15px; z-index: 300;
-            background: rgba(255,255,255,0.8); border: 2px solid var(--text-dark);
-            border-radius: 50%; width: 40px; height: 40px; font-size: 20px;
-            display: flex; align-items: center; justify-content: center; cursor: pointer;
-        }
-
         h1 { color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
         .bingo-letter { color: var(--orange-txt); font-weight: 900; }
         .bingo-number { color: var(--secondary); font-weight: 900; }
@@ -89,7 +81,11 @@
         #winner-screen.show { display: flex; animation: fadeIn 0.5s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* VOTING MODAL - Z-INDEX 150 */
+        /* BANNED SCREEN */
+        #banned-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #FF5252; color: white; z-index: 500; display: none; flex-direction: column; justify-content: center; align-items: center; }
+        #banned-screen.show { display: flex; }
+
+        /* VOTING MODAL */
         #vote-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 150; display: none; flex-direction: column; justify-content: center; align-items: center; }
         #vote-modal.show { display: flex; animation: fadeIn 0.3s; }
         .vote-card { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 500px; text-align: center; }
@@ -110,7 +106,7 @@
         }
         .vote-btn:hover { transform: scale(1.1); background: var(--primary); }
 
-        /* CHAT SECTION - Z-INDEX 200 (ABOVE VOTING) */
+        /* CHAT SECTION */
         #chat-section {
             position: fixed; bottom: 0; left: 0; width: 100%; 
             background: transparent;
@@ -153,6 +149,13 @@
         #chat-btn { margin: 0; padding: 8px 15px; font-size: 14px; min-width: 70px; }
         #chat-btn:disabled { background: #ccc; cursor: not-allowed; }
 
+        /* BAN HOVER FOR HOST */
+        .host-viewing .chat-name:not(.chat-host):hover {
+            color: red !important;
+            text-decoration: line-through;
+            cursor: pointer;
+        }
+
         /* Toast */
         #toast { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: var(--text-dark); color: #fff; text-align: center; border-radius: 50px; padding: 16px; position: fixed; z-index: 200; left: 50%; bottom: 30px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; font-weight: 700; }
         #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
@@ -167,9 +170,6 @@
     </style>
 </head>
 <body>
-
-<!-- Mute Button -->
-<div id="mute-btn" onclick="toggleMute()">🔊</div>
 
 <div id="app">
     <h1>Pokemon Bingo</h1>
@@ -271,7 +271,7 @@
 <div id="vote-modal">
     <div class="vote-card">
         <h2 style="margin:0; color:var(--text-dark)">Vote Next Letter!</h2>
-        <div id="vote-timer" class="vote-timer">15</div> <!-- Updated to 15s display -->
+        <div id="vote-timer" class="vote-timer">15</div>
         
         <div id="vote-buttons">
             <button class="vote-btn" onclick="submitVote('B')">B</button>
@@ -303,6 +303,11 @@
     </div>
 </div>
 
+<!-- BANNED SCREEN -->
+<div id="banned-screen">
+    <h1>YOU HAVE BEEN BANNED</h1>
+</div>
+
 <div id="toast"></div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -313,41 +318,6 @@
     let myCardGrid = []; 
     let voteTimerInterval = null;
     let isHost = false;
-    let isMuted = false;
-
-    // --- AUDIO LOGIC ---
-    function toggleMute() {
-        isMuted = !isMuted;
-        document.getElementById('mute-btn').innerText = isMuted ? '🔇' : '🔊';
-        // Initialize Audio Context on click to unlock sound
-        unlockAudio();
-    }
-
-    // Helper to unlock audio on first interaction
-    function unlockAudio() {
-        const audio = new Audio();
-        audio.play().catch(() => {});
-    }
-
-    function playCry(num) {
-        if (isMuted) return;
-        const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${num}.ogg`);
-        audio.volume = 0.5;
-        audio.play().catch(e => console.log("Cry Play failed:", e));
-    }
-
-    function playWinSound() {
-        if (isMuted) return;
-        // GitHub hosted MP3 for stability
-        const audio = new Audio('https://github.com/PokeAPI/cries/raw/main/cries/pokemon/latest/151.ogg'); 
-        // Fallback: Using a reliable short victory sound or Mew's cry as placeholder if needed
-        // For actual "Level Up", you can use: 
-        // const audio = new Audio('https://github.com/itsthatguy57/pokemon-sounds/blob/master/level_up.mp3?raw=true');
-        // Let's use the raw github link for level up:
-        const winAudio = new Audio('https://github.com/itsthatguy57/pokemon-sounds/raw/master/level_up.mp3');
-        winAudio.volume = 0.6;
-        winAudio.play().catch(e => console.log("Win sound failed:", e));
-    }
 
     function getLocalClientID() {
         let id = localStorage.getItem('bingo_client_id');
@@ -463,14 +433,12 @@
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
-        unlockAudio(); // Unlock audio context
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
     function joinGame() {
         const name = document.getElementById('player-name').value;
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!name || !code) return showToast("Enter name and code");
-        unlockAudio(); // Unlock audio context
         socket.emit('join_game', { roomCode: code, name: name, clientID: myClientID });
     }
     function startGame() { socket.emit('start_game', myRoomCode); }
@@ -514,14 +482,35 @@
         }, 1000);
     }
 
+    // BANNING LOGIC FOR HOST
     function appendChatMessage(msg) {
         const container = document.getElementById('chat-messages');
         const div = document.createElement('div');
         div.className = 'chat-msg';
-        const nameClass = msg.isHost ? 'chat-name chat-host' : 'chat-name';
-        div.innerHTML = `<span class="${nameClass}">${msg.name}:</span> ${msg.text}`;
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = msg.isHost ? 'chat-name chat-host' : 'chat-name';
+        nameSpan.innerText = msg.name + ': ';
+        
+        // Host Ban Interaction
+        if (isHost && !msg.isHost) {
+            nameSpan.title = "Click to BAN " + msg.name;
+            nameSpan.onclick = function() { confirmBan(msg.clientID, msg.name); };
+        }
+
+        const textSpan = document.createElement('span');
+        textSpan.innerText = msg.text;
+
+        div.appendChild(nameSpan);
+        div.appendChild(textSpan);
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
+    }
+
+    function confirmBan(targetID, targetName) {
+        if(confirm(`Are you sure you want to BAN ${targetName}?`)) {
+            socket.emit('ban_player', { roomCode: myRoomCode, targetClientID: targetID });
+        }
     }
 
     // --- SOCKET LISTENERS ---
@@ -530,6 +519,7 @@
         let code = typeof data === 'string' ? data : data.roomCode;
         myRoomCode = code;
         isHost = true;
+        document.body.classList.add('host-viewing'); // CSS helper
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('host-lobby-controls').classList.remove('hidden'); 
@@ -544,6 +534,7 @@
     socket.on('joined_success', (data) => {
         myRoomCode = data.roomCode;
         isHost = false;
+        document.body.classList.remove('host-viewing');
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('room-code-display').innerText = `${data.roomCode}`;
@@ -555,6 +546,18 @@
     });
 
     socket.on('chat_message', (msg) => { appendChatMessage(msg); });
+    
+    socket.on('chat_history_update', (history) => {
+        document.getElementById('chat-messages').innerHTML = '';
+        history.forEach(appendChatMessage);
+    });
+
+    socket.on('banned', () => {
+        document.getElementById('app').classList.add('hidden');
+        document.getElementById('chat-section').classList.add('hidden');
+        document.getElementById('banned-screen').classList.add('show');
+    });
+
     socket.on('player_count_update', (count) => { document.getElementById('player-count-display').innerText = count; });
     socket.on('error_msg', (msg) => showToast(msg));
 
@@ -569,7 +572,6 @@
         if (data.history) calledNumbers = data.history;
         else {
             calledNumbers.push(data.number);
-            playCry(data.number);
         }
         const num = data.number;
         const formattedHTML = getBingoFormatted(num);
@@ -607,7 +609,6 @@
     });
 
     socket.on('game_over', (winnerName) => {
-        playWinSound(); // PLAY WIN SOUND
         document.getElementById('winner-name').innerText = winnerName;
         document.getElementById('winner-screen').classList.add('show');
     });
