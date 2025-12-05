@@ -19,6 +19,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
+// --- CONFIG ---
+const RARE_CANDY_CHANCE = 0.50; // 50% chance per ball
+const RARE_CANDY_MAX_TURN = 7; // Can only get it within first 7 balls
+const RARE_CANDY_DURATION = 3; // Lasts for 3 turns
+
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
     "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay"
@@ -61,10 +66,6 @@ app.get('/logout', (req, res) => {
     req.logout(() => res.redirect('/'));
 });
 
-// --- RARE CANDY ---
-const RARE_CANDY_CHANCE = 0.50; 
-const RARE_CANDY_MAX_TURN = 7; 
-
 function filterMessage(text) {
     let filtered = text;
     BAD_WORDS.forEach(word => {
@@ -78,12 +79,10 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// UPDATED: REMOVED SORTING
 function getUniqueRandoms(min, max, count) {
     let nums = new Set();
     while(nums.size < count) nums.add(getRandomInt(min, max));
-    // Returned WITHOUT sort to keep them random in the column
-    return Array.from(nums);
+    return Array.from(nums); // Random order in column
 }
 
 function generatePlayerCard() {
@@ -206,20 +205,16 @@ io.on('connection', (socket) => {
         drawNumberLogic(roomCode);
     });
 
-    // --- UPDATED DRAW LOGIC FOR GAME MODES ---
     function drawNumberLogic(roomCode, preferredLetter = null) {
         const room = rooms[roomCode];
         if (room && room.availableNumbers.length > 0 && !room.winner) {
             
             let filteredPool = room.availableNumbers;
 
-            // 1. Apply Corners Filter (Only B and O)
             if (room.gameMode === 'corners') {
-                // Keep only 1-30 (B) and 121-150 (O)
                 filteredPool = filteredPool.filter(n => n <= 30 || n >= 121);
             }
 
-            // 2. Apply Vote Filter (If valid)
             if (preferredLetter) {
                 let min=1, max=150;
                 if (preferredLetter === 'B') { min=1; max=30; }
@@ -229,16 +224,12 @@ io.on('connection', (socket) => {
                 if (preferredLetter === 'O') { min=121; max=150; }
 
                 const letterSpecific = filteredPool.filter(n => n >= min && n <= max);
-                // Only use the voted letter if there are valid numbers left for it in the current pool
                 if (letterSpecific.length > 0) {
                     filteredPool = letterSpecific;
                 }
             }
 
-            // Fallback: If filtered pool is empty (e.g. Corners mode but no B/O left), 
-            // use main pool? In corners mode, if B/O are empty, game effectively stalls, 
-            // but we shouldn't draw I/N/G.
-            if (filteredPool.length === 0) return; // No numbers to draw
+            if (filteredPool.length === 0) return;
 
             const randomIndex = Math.floor(Math.random() * filteredPool.length);
             const number = filteredPool[randomIndex];
@@ -253,13 +244,27 @@ io.on('connection', (socket) => {
                 history: room.calledNumbers 
             });
 
-            // RARE CANDY
-            if (room.calledNumbers.length <= RARE_CANDY_MAX_TURN) {
+            const currentTurn = room.calledNumbers.length;
+
+            // 1. CHECK RARE CANDY EXPIRATION
+            room.players.forEach(player => {
+                if (player.hasRareCandy && !player.rareCandyUsed) {
+                    // If obtained at turn X, it expires if currentTurn >= X + Duration
+                    if (currentTurn >= player.rareCandyObtainedAtTurn + RARE_CANDY_DURATION) {
+                        player.hasRareCandy = false;
+                        io.to(player.id).emit('rare_candy_expired');
+                    }
+                }
+            });
+
+            // 2. AWARD RARE CANDY
+            if (currentTurn <= RARE_CANDY_MAX_TURN) {
                 room.players.forEach(player => {
                     if (!player.hasRareCandy && !player.rareCandyUsed) {
                         const roll = Math.random();
                         if (roll < RARE_CANDY_CHANCE) {
                             player.hasRareCandy = true;
+                            player.rareCandyObtainedAtTurn = currentTurn; // Store turn awarded
                             io.to(player.id).emit('rare_candy_awarded');
                         }
                     }
@@ -458,7 +463,8 @@ io.on('connection', (socket) => {
             toGo: 24, 
             lastChatTime: 0,
             hasRareCandy: false,
-            rareCandyUsed: false
+            rareCandyUsed: false,
+            rareCandyObtainedAtTurn: 0 // New Tracker
         };
 
         room.players.push(playerObj);
