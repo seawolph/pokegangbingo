@@ -33,7 +33,7 @@
             width: 100%; 
             max-width: 900px; 
             margin: 0 auto; 
-            padding: 10px 20px; /* Reduced top padding */
+            padding: 10px 20px; 
             min-height: 100vh; 
             padding-bottom: 220px; 
         }
@@ -42,9 +42,9 @@
 
         /* MUTE BUTTON */
         #mute-btn {
-            position: fixed; top: 15px; right: 15px; z-index: 300;
+            position: fixed; top: 10px; right: 10px; z-index: 300;
             background: rgba(255,255,255,0.9); border: 2px solid var(--text-dark);
-            border-radius: 50%; width: 40px; height: 40px; font-size: 20px;
+            border-radius: 50%; width: 35px; height: 35px; font-size: 18px;
             display: flex; align-items: center; justify-content: center; cursor: pointer;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
@@ -87,7 +87,7 @@
         #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 5px; }
         .header-cell { 
             background: var(--primary); color: white; font-weight: 900; font-size: 24px; 
-            padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            padding: 5px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
             display: flex; justify-content: center; align-items: center; 
         }
 
@@ -109,37 +109,46 @@
         .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.free-space img { opacity: 1; }
 
-        /* --- CURRENT CALL BOX (UPDATED) --- */
+        /* --- REDESIGNED COMPACT CURRENT CALL --- */
         #current-call { 
             background: white; 
-            padding: 10px 15px; 
-            margin-bottom: 15px; 
+            padding: 5px 15px; /* Reduced padding */
+            margin-bottom: 10px; 
             border-radius: 15px; 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
             border: 2px solid var(--secondary); 
             display: flex; 
-            flex-direction: column; /* Stack Title, Content, History */
+            flex-direction: row; /* Side by side */
             align-items: center; 
-            justify-content: center; 
+            justify-content: space-between; 
+            height: 80px; /* Fixed compact height */
         }
 
-        .cc-title {
-            color: var(--text-light); text-transform: uppercase; font-size: 11px; font-weight: 800;
-            margin-bottom: 5px;
-        }
+        /* Hide title for space saving, rely on visuals */
+        .cc-title { display: none; }
 
         #called-display {
-            display: flex; align-items: center; justify-content: center; gap: 15px;
-            margin-bottom: 5px;
-        }
-        
-        /* New History Styling inside box */
-        #last-calls {
-            margin-top: 5px; font-size: 12px; color: #aaa; font-weight: 700;
-            max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            flex: 1;
         }
 
-        #bingo-btn { width: 100%; margin: 15px 0; padding: 15px; font-size: 24px; letter-spacing: 2px; background: linear-gradient(45deg, #FF5252, #FF1744); display: none; animation: pulse 1.5s infinite; }
+        #current-call img {
+            width: 60px; height: 60px; object-fit: contain;
+        }
+        
+        /* Host view image sizing */
+        #host-current-call-display img {
+            width: 60px; height: 60px; object-fit: contain; vertical-align: middle;
+        }
+        
+        #last-calls {
+            font-size: 10px; color: #aaa; font-weight: 700;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 100px; /* Limit history width */
+            text-align: right;
+        }
+
+        #bingo-btn { width: 100%; margin: 10px 0; padding: 12px; font-size: 20px; letter-spacing: 2px; background: linear-gradient(45deg, #FF5252, #FF1744); display: none; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7); } 70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(255, 82, 82, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); } }
 
         #host-dashboard { display: grid; grid-template-columns: 350px 1fr; gap: 20px; text-align: left; }
@@ -262,37 +271,48 @@
 
         /* --- MOBILE MEDIA QUERIES --- */
         @media (max-width: 600px) {
-            #app { padding: 10px; padding-bottom: 250px; }
-            h1 { font-size: 2rem; margin-top: 10px; margin-bottom: 10px; }
+            #app { padding: 5px; padding-bottom: 220px; }
+            h1 { font-size: 1.8rem; margin-top: 10px; margin-bottom: 10px; }
             
             /* REDUCED CONTAINER PADDING */
             .card-container { padding: 10px; width: 100%; }
             
             /* Host View */
-            #host-dashboard { grid-template-columns: 1fr; gap: 15px; }
+            #host-dashboard { grid-template-columns: 1fr; gap: 10px; }
             #master-board { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; }
             .master-cell { width: 9%; font-size: 9px; padding: 2px 0; }
             
-            /* Compact Game View */
-            #current-call { min-height: 70px; padding: 5px; margin-bottom: 10px; }
-            #current-call img { width: 50px; } /* Smaller sprite */
-            /* Smaller text inside called display */
-            #called-display .bingo-num-display { font-size: 40px !important; }
+            /* COMPACT CALL BOX MOBILE */
+            #current-call { 
+                padding: 5px; 
+                margin-bottom: 8px; 
+                height: auto; 
+                flex-wrap: wrap; /* Allow wrap if really needed */
+            }
+            #current-call img { width: 50px; height: 50px; }
+            
+            #called-display { gap: 5px; justify-content: center; }
+            #called-display .bingo-num-display { font-size: 32px !important; }
+            
+            /* Smaller History on Mobile */
+            #last-calls {
+                font-size: 10px; max-width: 100%; text-align: center; margin-top: 5px;
+            }
 
             /* Bingo Card Tighter */
             #bingo-card { gap: 3px; }
             #bingo-header { gap: 3px; margin-bottom: 3px; }
             .header-cell { font-size: 16px; padding: 5px; }
-            .bingo-cell { border-radius: 8px; }
-            .bingo-cell span { font-size: 10px; margin-top: 1px; }
-            .bingo-cell img { width: 80%; }
+            .bingo-cell { border-radius: 6px; }
+            .bingo-cell span { font-size: 9px; margin-top: 1px; font-weight: 900; }
+            .bingo-cell img { width: 85%; }
 
             /* Buttons & Inputs */
-            button { width: 100%; padding: 12px; font-size: 14px; }
-            input, select { width: 100%; }
+            button { width: 100%; padding: 10px; font-size: 14px; }
+            input, select { width: 100%; padding: 10px; font-size: 16px; }
             
             /* Rare Candy */
-            #rare-candy-icon { width: 60px; bottom: 180px; right: 10px; }
+            #rare-candy-icon { width: 50px; bottom: 180px; right: 10px; }
         }
     </style>
 </head>
@@ -393,12 +413,11 @@
 
         <!-- PLAYER VIEW -->
         <div id="player-view" class="hidden">
+            <!-- UPDATED COMPACT CALL BOX -->
             <div id="current-call">
-                <div class="cc-title">CURRENT CALL</div>
                 <div id="called-display">
-                    <span style="color:#ccc;">Waiting...</span>
+                    <span style="color:#ccc; font-size:18px;">Waiting...</span>
                 </div>
-                <!-- MOVED HISTORY HERE -->
                 <div id="last-calls">History: None</div>
             </div>
             
