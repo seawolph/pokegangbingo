@@ -33,7 +33,7 @@
             width: 100%; 
             max-width: 900px; 
             margin: 0 auto; 
-            padding: 20px; 
+            padding: 10px 20px; /* Reduced top padding */
             min-height: 100vh; 
             padding-bottom: 220px; 
         }
@@ -85,11 +85,10 @@
 
         /* BINGO CARD GRID */
         #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 5px; }
-        /* HEADER ALIGNMENT FIX */
         .header-cell { 
             background: var(--primary); color: white; font-weight: 900; font-size: 24px; 
             padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-            display: flex; justify-content: center; align-items: center; /* CENTERED */
+            display: flex; justify-content: center; align-items: center; 
         }
 
         #bingo-card { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
@@ -110,9 +109,37 @@
         .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.free-space img { opacity: 1; }
 
-        #current-call { background: white; padding: 20px; margin-bottom: 20px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); border: 2px solid var(--secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; }
+        /* --- CURRENT CALL BOX (UPDATED) --- */
+        #current-call { 
+            background: white; 
+            padding: 10px 15px; 
+            margin-bottom: 15px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+            border: 2px solid var(--secondary); 
+            display: flex; 
+            flex-direction: column; /* Stack Title, Content, History */
+            align-items: center; 
+            justify-content: center; 
+        }
 
-        #bingo-btn { width: 100%; margin: 20px 0; padding: 20px; font-size: 28px; letter-spacing: 2px; background: linear-gradient(45deg, #FF5252, #FF1744); display: none; animation: pulse 1.5s infinite; }
+        .cc-title {
+            color: var(--text-light); text-transform: uppercase; font-size: 11px; font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        #called-display {
+            display: flex; align-items: center; justify-content: center; gap: 15px;
+            margin-bottom: 5px;
+        }
+        
+        /* New History Styling inside box */
+        #last-calls {
+            margin-top: 5px; font-size: 12px; color: #aaa; font-weight: 700;
+            max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        #bingo-btn { width: 100%; margin: 15px 0; padding: 15px; font-size: 24px; letter-spacing: 2px; background: linear-gradient(45deg, #FF5252, #FF1744); display: none; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7); } 70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(255, 82, 82, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); } }
 
         #host-dashboard { display: grid; grid-template-columns: 350px 1fr; gap: 20px; text-align: left; }
@@ -248,8 +275,9 @@
             
             /* Compact Game View */
             #current-call { min-height: 70px; padding: 5px; margin-bottom: 10px; }
-            #current-call img { width: 60px; }
-            #current-call div { font-size: 32px !important; }
+            #current-call img { width: 50px; } /* Smaller sprite */
+            /* Smaller text inside called display */
+            #called-display .bingo-num-display { font-size: 40px !important; }
 
             /* Bingo Card Tighter */
             #bingo-card { gap: 3px; }
@@ -366,12 +394,16 @@
         <!-- PLAYER VIEW -->
         <div id="player-view" class="hidden">
             <div id="current-call">
-                <div style="color: var(--text-light); text-transform: uppercase; font-size: 12px; font-weight: 800;">Current Call</div>
-                <div id="called-display" style="display: flex; align-items: center; justify-content: center; gap: 15px;">
-                    <span style="font-size: 24px; color: #ccc;">Waiting for host...</span>
+                <div class="cc-title">CURRENT CALL</div>
+                <div id="called-display">
+                    <span style="color:#ccc;">Waiting...</span>
                 </div>
+                <!-- MOVED HISTORY HERE -->
+                <div id="last-calls">History: None</div>
             </div>
+            
             <button id="bingo-btn" class="btn-accent" onclick="claimBingo()">CLAIM BINGO!</button>
+            
             <div style="max-width: 500px; margin: 0 auto;">
                 <div id="bingo-header">
                     <div class="header-cell">B</div>
@@ -382,7 +414,6 @@
                 </div>
                 <div id="bingo-card"></div>
             </div>
-            <div id="last-calls" style="margin-top:20px; color:#aaa; font-size: 14px; font-weight: 700;">History: None</div>
         </div>
     </div>
 </div>
@@ -848,7 +879,7 @@
         }
         const num = data.number;
         const formattedHTML = getBingoFormatted(num);
-        document.getElementById('called-display').innerHTML = `<div style="font-size:50px; line-height:1;">${formattedHTML}</div><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:100px">`;
+        document.getElementById('called-display').innerHTML = `<div class="bingo-num-display" style="font-size:50px; line-height:1;">${formattedHTML}</div><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:80px">`;
         const historyHTML = calledNumbers.slice(-5).map(n => getBingoFormatted(n)).join(', ');
         document.getElementById('last-calls').innerHTML = "History: " + historyHTML;
         document.getElementById('host-current-call-display').innerHTML = `<span style="font-size: 40px; margin-right: 15px;">${formattedHTML}</span><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">`;
