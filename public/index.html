@@ -17,8 +17,19 @@
             --text-light: #7F8C8D;
         }
 
-        body { font-family: 'Nunito', sans-serif; background-color: var(--bg); color: var(--text-dark); text-align: center; margin: 0; padding: 0; }
-        #app { max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; padding-bottom: 200px; }
+        body { font-family: 'Nunito', sans-serif; background-color: var(--bg); color: var(--text-dark); text-align: center; margin: 0; padding: 0; overflow-x: hidden; }
+        
+        /* MOBILE RESPONSIVE TWEAKS */
+        #app { 
+            width: 100%; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            box-sizing: border-box;
+            min-height: 100vh; 
+            padding-bottom: 200px; 
+        }
+
         .hidden { display: none !important; }
 
         /* MUTE BUTTON */
@@ -29,7 +40,11 @@
             display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
 
-        h1 { color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
+        h1 { 
+            color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; 
+            text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); 
+        }
+
         .bingo-letter { color: var(--orange-txt); font-weight: 900; }
         .bingo-number { color: var(--secondary); font-weight: 900; }
 
@@ -51,11 +66,17 @@
         .lobby-counter { font-size: 80px; font-weight: 900; color: var(--secondary); margin: 20px 0; }
         .lobby-subtext { color: var(--text-light); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
 
+        /* BINGO CARD GRID */
         #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 5px; }
         .header-cell { background: var(--primary); color: white; font-weight: 900; font-size: 24px; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 
         #bingo-card { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-        .bingo-cell { background: white; border-radius: 12px; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 2px solid transparent; transition: all 0.2s; }
+        .bingo-cell { 
+            background: white; border-radius: 12px; aspect-ratio: 1; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            cursor: pointer; position: relative; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 2px solid transparent; transition: all 0.2s; 
+        }
         .bingo-cell:hover { transform: scale(1.05); z-index: 2; box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
         .bingo-cell img { width: 75%; height: auto; transition: opacity 0.3s; }
         .bingo-cell span { font-size: 13px; font-weight: 800; color: var(--text-light); margin-top: 4px; letter-spacing: -0.5px; }
@@ -181,10 +202,30 @@
         #toast .bingo-letter { color: #FF9100; } 
         #toast .bingo-number { color: #4FC3F7; }
 
-        @media (max-width: 900px) { 
-            #host-dashboard { grid-template-columns: 1fr; } 
-            #master-board { grid-template-columns: repeat(10, 1fr); }
-            #app { padding-bottom: 200px; } 
+        /* --- MOBILE MEDIA QUERIES --- */
+        @media (max-width: 600px) {
+            #app { padding: 10px; padding-bottom: 250px; } /* More bottom padding for chat */
+            h1 { font-size: 2rem; margin-top: 10px; }
+            .card-container { padding: 20px; width: 95%; box-sizing: border-box; }
+            
+            /* Host View */
+            #host-dashboard { grid-template-columns: 1fr; gap: 15px; }
+            #master-board { grid-template-columns: repeat(10, 1fr); gap: 1px; } /* 10 cols for mobile */
+            .master-cell { font-size: 10px; padding: 2px 0; }
+            
+            /* Bingo Card */
+            #bingo-card { gap: 4px; }
+            #bingo-header { gap: 4px; }
+            .header-cell { font-size: 18px; padding: 5px; }
+            .bingo-cell span { font-size: 11px; margin-top: 2px; }
+            .bingo-cell img { width: 85%; }
+
+            /* Buttons & Inputs */
+            button { width: 100%; padding: 12px; font-size: 14px; }
+            input, select { width: 100%; box-sizing: border-box; }
+            
+            /* Rare Candy */
+            #rare-candy-icon { width: 60px; bottom: 200px; }
         }
     </style>
 </head>
@@ -365,7 +406,7 @@
     let isMuted = false;
     let currentGameMode = 'standard';
     let currentUserName = null;
-    let hasRareCandy = false; // CLIENT STATE
+    let hasRareCandy = false; 
 
     window.onload = function() {
         fetch('/auth/me')
@@ -493,18 +534,16 @@
     function handleCardClick(element, number) {
         if (element.classList.contains('marked')) return;
         
-        // CHECK 1: Normal Called Number
         if (calledNumbers.includes(number)) {
             element.classList.add('marked');
             socket.emit('mark_number', { roomCode: myRoomCode, number: number, isMarking: true });
             checkLocalBingo();
         } 
-        // CHECK 2: Rare Candy
         else if (hasRareCandy) {
             if(confirm("Use Rare Candy to mark this spot?")) {
                 element.classList.add('marked');
-                hasRareCandy = false; // consume local
-                document.getElementById('rare-candy-icon').style.display = 'none'; // hide icon
+                hasRareCandy = false; 
+                document.getElementById('rare-candy-icon').style.display = 'none'; 
                 socket.emit('mark_number', { roomCode: myRoomCode, number: number, isMarking: true });
                 checkLocalBingo();
             }
@@ -698,7 +737,7 @@
         hasRareCandy = true;
         document.getElementById('rare-candy-icon').style.display = 'block';
         showToast("You found a RARE CANDY! Click any spot to mark it!");
-        playWinSound(); // Sound effect for candy
+        playWinSound(); 
     });
 
     socket.on('chat_message', (msg) => { appendChatMessage(msg); });
