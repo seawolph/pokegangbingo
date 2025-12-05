@@ -15,7 +15,6 @@
             --surface: #FFFFFF;
             --text-dark: #2C3E50;
             --text-light: #7F8C8D;
-            --discord: #5865F2;
         }
 
         body { font-family: 'Nunito', sans-serif; background-color: var(--bg); color: var(--text-dark); text-align: center; margin: 0; padding: 0; }
@@ -46,10 +45,8 @@
         .btn-primary { background: var(--secondary); color: white; box-shadow: 0 4px 15px rgba(59, 76, 202, 0.4); }
         .btn-accent { background: var(--accent); color: var(--secondary); box-shadow: 0 4px 15px rgba(255, 203, 5, 0.4); }
         .btn-host { background: var(--primary); color: white; box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4); }
-        .btn-discord { background: var(--discord); color: white; text-decoration: none; display: inline-block; box-shadow: 0 4px 15px rgba(88, 101, 242, 0.4); }
-        
-        button:hover, .btn-discord:hover { transform: translateY(-3px); }
-        button:active, .btn-discord:active { transform: translateY(1px); }
+        button:hover { transform: translateY(-3px); }
+        button:active { transform: translateY(1px); }
 
         .lobby-counter { font-size: 80px; font-weight: 900; color: var(--secondary); margin: 20px 0; }
         .lobby-subtext { color: var(--text-light); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
@@ -97,6 +94,13 @@
         /* BANNED SCREEN */
         #banned-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #FF5252; color: white; z-index: 500; display: none; flex-direction: column; justify-content: center; align-items: center; }
         #banned-screen.show { display: flex; }
+
+        /* RARE CANDY MODAL */
+        #rare-candy-icon { 
+            position: fixed; bottom: 220px; right: 20px; width: 80px; z-index: 400; cursor: pointer; display: none;
+            animation: bounce 1s infinite;
+        }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
         /* VOTING MODAL */
         #vote-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 150; display: none; flex-direction: column; justify-content: center; align-items: center; }
@@ -189,12 +193,14 @@
 <!-- Mute Button -->
 <div id="mute-btn" onclick="toggleMute()">🔊</div>
 
+<!-- Rare Candy Icon -->
+<img id="rare-candy-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png" alt="Rare Candy">
+
 <div id="app">
     <h1>Pokemon Bingo</h1>
 
     <!-- Landing Screen -->
     <div id="landing-screen">
-        <!-- HOST CARD -->
         <div class="card-container">
             <h3 style="color: var(--secondary);">Host a Game</h3>
             <input type="password" id="admin-pass" placeholder="Admin Password">
@@ -202,19 +208,16 @@
             <button class="btn-host" onclick="createGame()">Create Session</button>
         </div>
         
-        <!-- PLAYER CARD -->
         <div class="card-container">
             <h3 style="color: var(--primary);">Join a Game</h3>
             
-            <!-- Default View: Show Login Button -->
             <div id="login-section">
                 <p style="color: #666; margin-bottom: 20px;">Please log in to play.</p>
-                <a href="/auth/discord" class="btn-discord" style="padding: 15px 30px; border-radius: 50px; font-weight: 800;">
+                <a href="/auth/discord" class="btn-discord" style="padding: 15px 30px; border-radius: 50px; font-weight: 800; background: #5865F2; color:white; text-decoration:none;">
                     Login with Discord
                 </a>
             </div>
 
-            <!-- Logged In View: Show Join Inputs -->
             <div id="join-section" class="hidden">
                 <p id="welcome-msg" style="color: var(--secondary); font-weight: 800; font-size: 18px; margin-bottom: 10px;"></p>
                 <input type="text" id="join-code" class="code-input" placeholder="Room Code">
@@ -361,21 +364,19 @@
     let isHost = false;
     let isMuted = false;
     let currentGameMode = 'standard';
-    let currentUserName = null; // Store fetched username
+    let currentUserName = null;
+    let hasRareCandy = false; // CLIENT STATE
 
-    // CHECK AUTH ON LOAD
     window.onload = function() {
         fetch('/auth/me')
             .then(res => res.json())
             .then(data => {
                 if (data.user) {
-                    // Logged in
                     currentUserName = data.user.username;
                     document.getElementById('login-section').classList.add('hidden');
                     document.getElementById('join-section').classList.remove('hidden');
                     document.getElementById('welcome-msg').innerText = `Welcome, ${currentUserName}`;
                 } else {
-                    // Not logged in
                     document.getElementById('login-section').classList.remove('hidden');
                     document.getElementById('join-section').classList.add('hidden');
                 }
@@ -383,7 +384,6 @@
             .catch(err => console.error("Auth check failed", err));
     };
 
-    // --- AUDIO LOGIC ---
     function toggleMute() {
         isMuted = !isMuted;
         document.getElementById('mute-btn').innerText = isMuted ? '🔇' : '🔊';
@@ -492,11 +492,24 @@
 
     function handleCardClick(element, number) {
         if (element.classList.contains('marked')) return;
+        
+        // CHECK 1: Normal Called Number
         if (calledNumbers.includes(number)) {
             element.classList.add('marked');
             socket.emit('mark_number', { roomCode: myRoomCode, number: number, isMarking: true });
             checkLocalBingo();
-        } else {
+        } 
+        // CHECK 2: Rare Candy
+        else if (hasRareCandy) {
+            if(confirm("Use Rare Candy to mark this spot?")) {
+                element.classList.add('marked');
+                hasRareCandy = false; // consume local
+                document.getElementById('rare-candy-icon').style.display = 'none'; // hide icon
+                socket.emit('mark_number', { roomCode: myRoomCode, number: number, isMarking: true });
+                checkLocalBingo();
+            }
+        }
+        else {
             showToast(`${getBingoFormatted(number)} hasn't been called yet!`);
         }
     }
@@ -554,9 +567,7 @@
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
     
-    // UPDATED JOIN
     function joinGame() {
-        // No input reading, use currentUserName
         if(!currentUserName) return showToast("Please login first");
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!code) return showToast("Enter room code");
@@ -654,154 +665,4 @@
         document.body.classList.add('host-viewing');
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
-        document.getElementById('host-lobby-controls').classList.remove('hidden'); 
-        document.getElementById('room-code-display').innerText = `${code}`;
-        document.getElementById('chat-section').classList.remove('hidden'); 
-        initMasterBoard();
-        
-        document.getElementById('chat-messages').innerHTML = ''; 
-        if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
-    });
-
-    socket.on('joined_success', (data) => {
-        myRoomCode = data.roomCode;
-        isHost = false;
-        if(data.gameMode) currentGameMode = data.gameMode; 
-
-        document.body.classList.remove('host-viewing');
-        document.getElementById('landing-screen').classList.add('hidden');
-        document.getElementById('lobby-screen').classList.remove('hidden');
-        document.getElementById('room-code-display').innerText = `${data.roomCode}`;
-        document.getElementById('chat-section').classList.remove('hidden'); 
-        renderPlayerCard(data.card, data.markedNumbers);
-
-        document.getElementById('chat-messages').innerHTML = ''; 
-        if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
-    });
-
-    socket.on('chat_message', (msg) => { appendChatMessage(msg); });
-    
-    socket.on('chat_history_update', (history) => {
-        document.getElementById('chat-messages').innerHTML = '';
-        history.forEach(appendChatMessage);
-    });
-
-    socket.on('banned', () => {
-        document.getElementById('app').classList.add('hidden');
-        document.getElementById('chat-section').classList.add('hidden');
-        document.getElementById('banned-screen').classList.add('show');
-    });
-
-    socket.on('player_count_update', (count) => { document.getElementById('player-count-display').innerText = count; });
-    socket.on('error_msg', (msg) => showToast(msg));
-
-    socket.on('game_started', (mode) => {
-        if(mode) currentGameMode = mode;
-        document.getElementById('lobby-screen').classList.add('hidden');
-        document.getElementById('game-screen').classList.remove('hidden');
-        if (isHost) document.getElementById('host-view').classList.remove('hidden');
-        else document.getElementById('player-view').classList.remove('hidden');
-    });
-
-    socket.on('number_drawn', (data) => {
-        if (data.history) calledNumbers = data.history;
-        else {
-            calledNumbers.push(data.number);
-            playCry(data.number);
-        }
-        const num = data.number;
-        const formattedHTML = getBingoFormatted(num);
-        document.getElementById('called-display').innerHTML = `<div style="font-size:50px; line-height:1;">${formattedHTML}</div><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:100px">`;
-        const historyHTML = calledNumbers.slice(-5).map(n => getBingoFormatted(n)).join(', ');
-        document.getElementById('last-calls').innerHTML = "History: " + historyHTML;
-        document.getElementById('host-current-call-display').innerHTML = `<span style="font-size: 40px; margin-right: 15px;">${formattedHTML}</span><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">`;
-        if (data.history) data.history.forEach(n => { const cell = document.getElementById(`master-${n}`); if(cell) cell.classList.add('called'); });
-    });
-
-    socket.on('host_update', (data) => {
-        const list = document.getElementById('leaderboard-list');
-        list.innerHTML = '';
-        data.topPlayers.forEach(p => {
-            const row = document.createElement('div');
-            row.className = 'player-row';
-            const info = document.createElement('div');
-            info.className = 'player-info';
-            info.innerHTML = `<h4>${p.name}</h4><p>${p.toGo} to go</p>`;
-            const mini = document.createElement('div');
-            mini.className = 'mini-card';
-            p.card.forEach(cardRow => {
-                cardRow.forEach(val => {
-                    const dot = document.createElement('div');
-                    dot.className = 'mini-cell';
-                    if (val === 151) dot.classList.add('free');
-                    if (p.markedNumbers.includes(val) || val === 151) dot.classList.add('marked');
-                    mini.appendChild(dot);
-                });
-            });
-            row.appendChild(info);
-            row.appendChild(mini);
-            list.appendChild(row);
-        });
-    });
-
-    socket.on('game_over', (winnerName) => {
-        playWinSound(); 
-        document.getElementById('winner-name').innerText = winnerName;
-        document.getElementById('winner-screen').classList.add('show');
-    });
-
-    socket.on('vote_started', (data) => {
-        const modal = document.getElementById('vote-modal');
-        const btns = document.getElementById('vote-buttons');
-        const timer = document.getElementById('vote-timer');
-        
-        if(!data.counts) {
-            ['B','I','N','G','O'].forEach(l => {
-                document.getElementById(`count-${l}`).innerText = '0';
-                document.getElementById(`bar-${l}`).style.height = '0%';
-            });
-        } else {
-            const max = Math.max(...Object.values(data.counts));
-            ['B','I','N','G','O'].forEach(l => {
-                const count = data.counts[l];
-                document.getElementById(`count-${l}`).innerText = count;
-                const h = max > 0 ? (count / max) * 100 : 0;
-                document.getElementById(`bar-${l}`).style.height = `${h}%`;
-            });
-        }
-
-        modal.classList.add('show');
-        if (isHost || (data.hasVoted)) btns.classList.add('hidden');
-        else btns.classList.remove('hidden');
-
-        if(voteTimerInterval) clearInterval(voteTimerInterval);
-        
-        function updateTimer() {
-            const now = Date.now();
-            const remaining = Math.max(0, Math.ceil((data.endTime - now) / 1000));
-            timer.innerText = remaining;
-            if(remaining <= 0) clearInterval(voteTimerInterval);
-        }
-        
-        updateTimer();
-        voteTimerInterval = setInterval(updateTimer, 1000);
-    });
-
-    socket.on('vote_update', (counts) => {
-        const max = Math.max(...Object.values(counts));
-        ['B','I','N','G','O'].forEach(l => {
-            const count = counts[l];
-            document.getElementById(`count-${l}`).innerText = count;
-            const h = max > 0 ? (count / max) * 100 : 0;
-            document.getElementById(`bar-${l}`).style.height = `${h}%`;
-        });
-    });
-
-    socket.on('vote_ended', () => {
-        document.getElementById('vote-modal').classList.remove('show');
-        if(voteTimerInterval) clearInterval(voteTimerInterval);
-    });
-
-</script>
-</body>
-</html>
+        document.getElementById('host-lobby-
