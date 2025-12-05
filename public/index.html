@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pokemon Bingo</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        /* GLOBAL RESET FOR BETTER MOBILE */
-        * { box-sizing: border-box; }
+        /* GLOBAL RESET */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         :root {
             --primary: #FF5252;
@@ -26,7 +26,7 @@
             color: var(--text-dark); 
             text-align: center; 
             margin: 0; padding: 0;
-            overflow-x: hidden; 
+            overflow-x: hidden; /* Prevent horizontal scroll */
         }
 
         #app { 
@@ -35,7 +35,7 @@
             margin: 0 auto; 
             padding: 20px; 
             min-height: 100vh; 
-            padding-bottom: 220px; /* Space for chat */
+            padding-bottom: 180px; /* Space for chat */
         }
 
         .hidden { display: none !important; }
@@ -43,20 +43,27 @@
         /* MUTE BUTTON */
         #mute-btn {
             position: fixed; top: 15px; right: 15px; z-index: 300;
-            background: rgba(255,255,255,0.8); border: 2px solid var(--text-dark);
+            background: rgba(255,255,255,0.9); border: 2px solid var(--text-dark);
             border-radius: 50%; width: 40px; height: 40px; font-size: 20px;
             display: flex; align-items: center; justify-content: center; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         h1 { 
-            color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 10px; 
+            color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 20px; 
             text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); 
+            transition: all 0.3s ease;
         }
 
         .bingo-letter { color: var(--orange-txt); font-weight: 900; }
         .bingo-number { color: var(--secondary); font-weight: 900; }
 
-        .card-container { background: var(--surface); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 40px; margin: 20px auto; max-width: 500px; transition: transform 0.3s ease; width: 100%; }
+        .card-container { 
+            background: var(--surface); border-radius: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 40px; 
+            margin: 20px auto; max-width: 500px; width: 100%;
+            transition: transform 0.3s ease; 
+        }
 
         input { width: 80%; padding: 15px; font-size: 18px; margin: 10px 0; border: 2px solid #eee; border-radius: 12px; outline: none; transition: 0.3s; font-family: 'Nunito', sans-serif; font-weight: 700; }
         input:focus { border-color: var(--secondary); }
@@ -68,17 +75,19 @@
         .btn-primary { background: var(--secondary); color: white; box-shadow: 0 4px 15px rgba(59, 76, 202, 0.4); }
         .btn-accent { background: var(--accent); color: var(--secondary); box-shadow: 0 4px 15px rgba(255, 203, 5, 0.4); }
         .btn-host { background: var(--primary); color: white; box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4); }
-        button:hover { transform: translateY(-3px); }
-        button:active { transform: translateY(1px); }
+        .btn-discord { background: #5865F2; color: white; text-decoration: none; display: inline-block; box-shadow: 0 4px 15px rgba(88, 101, 242, 0.4); }
+        
+        button:hover, .btn-discord:hover { transform: translateY(-3px); }
+        button:active, .btn-discord:active { transform: translateY(1px); }
 
         .lobby-counter { font-size: 80px; font-weight: 900; color: var(--secondary); margin: 20px 0; }
         .lobby-subtext { color: var(--text-light); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
 
         /* BINGO CARD GRID */
-        #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 5px; }
+        #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 5px; }
         .header-cell { background: var(--primary); color: white; font-weight: 900; font-size: 24px; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 
-        #bingo-card { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+        #bingo-card { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
         .bingo-cell { 
             background: white; border-radius: 12px; aspect-ratio: 1; 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
@@ -124,14 +133,14 @@
         #banned-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #FF5252; color: white; z-index: 500; display: none; flex-direction: column; justify-content: center; align-items: center; }
         #banned-screen.show { display: flex; }
 
-        /* RARE CANDY MODAL */
+        /* RARE CANDY ICON */
         #rare-candy-icon { 
             position: fixed; bottom: 220px; right: 20px; width: 80px; z-index: 400; cursor: pointer; display: none;
             animation: bounce 1s infinite;
         }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
-        /* NEW CUSTOM MODAL FOR RARE CANDY INTERACTION */
+        /* CUSTOM DIALOG */
         #rare-candy-dialog {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.8); z-index: 450; display: none;
@@ -222,7 +231,7 @@
         /* --- MOBILE MEDIA QUERIES --- */
         @media (max-width: 600px) {
             #app { padding: 10px; padding-bottom: 250px; }
-            h1 { font-size: 2rem; margin-top: 10px; }
+            h1 { font-size: 2rem; margin-top: 10px; margin-bottom: 10px; }
             .card-container { padding: 20px; width: 100%; }
             
             /* Host View */
@@ -230,11 +239,17 @@
             #master-board { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; }
             .master-cell { width: 9%; font-size: 9px; padding: 2px 0; }
             
-            /* Bingo Card */
-            #bingo-card { gap: 4px; }
-            #bingo-header { gap: 4px; }
-            .header-cell { font-size: 18px; padding: 5px; }
-            .bingo-cell span { font-size: 11px; margin-top: 2px; }
+            /* Compact Game View */
+            #current-call { min-height: 80px; padding: 10px; margin-bottom: 10px; }
+            #current-call img { width: 60px; }
+            #current-call div { font-size: 36px !important; }
+
+            /* Bingo Card Tighter */
+            #bingo-card { gap: 3px; }
+            #bingo-header { gap: 3px; margin-bottom: 3px; }
+            .header-cell { font-size: 16px; padding: 5px; }
+            .bingo-cell { border-radius: 8px; }
+            .bingo-cell span { font-size: 10px; margin-top: 1px; }
             .bingo-cell img { width: 85%; }
 
             /* Buttons & Inputs */
@@ -265,7 +280,8 @@
 </div>
 
 <div id="app">
-    <h1>Pokemon Bingo</h1>
+    <!-- TITLE: Added ID to toggle it off -->
+    <h1 id="game-title">Pokemon Bingo</h1>
 
     <!-- Landing Screen -->
     <div id="landing-screen">
@@ -434,7 +450,7 @@
     let currentGameMode = 'standard';
     let currentUserName = null;
     let hasRareCandy = false; 
-    let pendingCandyTarget = null; // Store which cell was clicked
+    let pendingCandyTarget = null; 
 
     window.onload = function() {
         fetch('/auth/me')
@@ -568,14 +584,9 @@
             checkLocalBingo();
         } 
         else if (hasRareCandy) {
-            // CUSTOM MODAL TRIGGER
             pendingCandyTarget = { el: element, num: number };
             document.getElementById('rare-candy-dialog').classList.add('show');
-            
-            // Set listener for Yes button
-            document.getElementById('rc-confirm-btn').onclick = function() {
-                confirmRareCandyUse();
-            };
+            document.getElementById('rc-confirm-btn').onclick = function() { confirmRareCandyUse(); };
         }
         else {
             showToast(`${getBingoFormatted(number)} hasn't been called yet!`);
@@ -756,6 +767,9 @@
         
         document.getElementById('chat-messages').innerHTML = ''; 
         if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
+        
+        // Hide Game Title in Game
+        document.getElementById('game-title').classList.add('hidden');
     });
 
     socket.on('joined_success', (data) => {
@@ -785,7 +799,7 @@
         playWinSound(); 
     });
 
-    // NEW: FORCE CLOSE MODAL ON EXPIRY
+    // FORCE CLOSE MODAL ON EXPIRY
     socket.on('rare_candy_expired', () => {
         hasRareCandy = false;
         document.getElementById('rare-candy-icon').style.display = 'none';
@@ -813,6 +827,8 @@
         if(mode) currentGameMode = mode;
         document.getElementById('lobby-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
+        // Hide Title on start for players
+        document.getElementById('game-title').classList.add('hidden');
         if (isHost) document.getElementById('host-view').classList.remove('hidden');
         else document.getElementById('player-view').classList.remove('hidden');
     });
