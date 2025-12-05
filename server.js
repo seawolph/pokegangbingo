@@ -24,11 +24,11 @@ const RARE_CANDY_CHANCE = 0.50;
 const RARE_CANDY_MAX_TURN = 7; 
 const RARE_CANDY_DURATION = 3; 
 
-// --- CENSOR LIST ---
+// --- UPDATED CENSOR LIST ---
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
     "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay",
-    "rape", "raped", "penis"
+    "rape", "raped", "penis", "goon", "hentai"
 ]; 
 
 // --- DISCORD AUTH ---
@@ -419,8 +419,6 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // --- CHECK FOR DUPLICATE USERNAME (DIFFERENT DEVICE) ---
-        // Only check players (not host) and allow same clientID (reconnect)
         const existingUser = room.players.find(p => p.name === name);
         if (existingUser && existingUser.clientID !== clientID) {
             socket.emit('error_msg', 'You are already joined in this session on another device.');
