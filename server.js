@@ -20,13 +20,15 @@ const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
 // --- CONFIG ---
-const RARE_CANDY_CHANCE = 0.50; // 50% chance per ball
-const RARE_CANDY_MAX_TURN = 7; // Can only get it within first 7 balls
-const RARE_CANDY_DURATION = 3; // Lasts for 3 turns
+const RARE_CANDY_CHANCE = 0.50; 
+const RARE_CANDY_MAX_TURN = 7; 
+const RARE_CANDY_DURATION = 3; 
 
+// --- UPDATED CENSOR LIST ---
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
-    "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay"
+    "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay",
+    "rape", "raped", "penis"
 ]; 
 
 // --- DISCORD AUTH ---
@@ -82,7 +84,7 @@ function getRandomInt(min, max) {
 function getUniqueRandoms(min, max, count) {
     let nums = new Set();
     while(nums.size < count) nums.add(getRandomInt(min, max));
-    return Array.from(nums); // Random order in column
+    return Array.from(nums); 
 }
 
 function generatePlayerCard() {
@@ -246,10 +248,8 @@ io.on('connection', (socket) => {
 
             const currentTurn = room.calledNumbers.length;
 
-            // 1. CHECK RARE CANDY EXPIRATION
             room.players.forEach(player => {
                 if (player.hasRareCandy && !player.rareCandyUsed) {
-                    // If obtained at turn X, it expires if currentTurn >= X + Duration
                     if (currentTurn >= player.rareCandyObtainedAtTurn + RARE_CANDY_DURATION) {
                         player.hasRareCandy = false;
                         io.to(player.id).emit('rare_candy_expired');
@@ -257,14 +257,13 @@ io.on('connection', (socket) => {
                 }
             });
 
-            // 2. AWARD RARE CANDY
             if (currentTurn <= RARE_CANDY_MAX_TURN) {
                 room.players.forEach(player => {
                     if (!player.hasRareCandy && !player.rareCandyUsed) {
                         const roll = Math.random();
                         if (roll < RARE_CANDY_CHANCE) {
                             player.hasRareCandy = true;
-                            player.rareCandyObtainedAtTurn = currentTurn; // Store turn awarded
+                            player.rareCandyObtainedAtTurn = currentTurn; 
                             io.to(player.id).emit('rare_candy_awarded');
                         }
                     }
@@ -464,7 +463,7 @@ io.on('connection', (socket) => {
             lastChatTime: 0,
             hasRareCandy: false,
             rareCandyUsed: false,
-            rareCandyObtainedAtTurn: 0 // New Tracker
+            rareCandyObtainedAtTurn: 0 
         };
 
         room.players.push(playerObj);
