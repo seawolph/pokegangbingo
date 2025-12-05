@@ -665,4 +665,165 @@
         document.body.classList.add('host-viewing');
         document.getElementById('landing-screen').classList.add('hidden');
         document.getElementById('lobby-screen').classList.remove('hidden');
-        document.getElementById('host-lobby-
+        document.getElementById('host-lobby-controls').classList.remove('hidden'); 
+        document.getElementById('room-code-display').innerText = `${code}`;
+        document.getElementById('chat-section').classList.remove('hidden'); 
+        initMasterBoard();
+        
+        document.getElementById('chat-messages').innerHTML = ''; 
+        if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
+    });
+
+    socket.on('joined_success', (data) => {
+        myRoomCode = data.roomCode;
+        isHost = false;
+        if(data.gameMode) currentGameMode = data.gameMode; 
+
+        // RARE CANDY SYNC
+        hasRareCandy = data.hasRareCandy && !data.rareCandyUsed;
+        document.getElementById('rare-candy-icon').style.display = hasRareCandy ? 'block' : 'none';
+
+        document.body.classList.remove('host-viewing');
+        document.getElementById('landing-screen').classList.add('hidden');
+        document.getElementById('lobby-screen').classList.remove('hidden');
+        document.getElementById('room-code-display').innerText = `${data.roomCode}`;
+        document.getElementById('chat-section').classList.remove('hidden'); 
+        renderPlayerCard(data.card, data.markedNumbers);
+
+        document.getElementById('chat-messages').innerHTML = ''; 
+        if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
+    });
+
+    socket.on('rare_candy_awarded', () => {
+        hasRareCandy = true;
+        document.getElementById('rare-candy-icon').style.display = 'block';
+        showToast("You found a RARE CANDY! Click any spot to mark it!");
+        playWinSound(); // Sound effect for candy
+    });
+
+    socket.on('chat_message', (msg) => { appendChatMessage(msg); });
+    
+    socket.on('chat_history_update', (history) => {
+        document.getElementById('chat-messages').innerHTML = '';
+        history.forEach(appendChatMessage);
+    });
+
+    socket.on('banned', () => {
+        document.getElementById('app').classList.add('hidden');
+        document.getElementById('chat-section').classList.add('hidden');
+        document.getElementById('banned-screen').classList.add('show');
+    });
+
+    socket.on('player_count_update', (count) => { document.getElementById('player-count-display').innerText = count; });
+    socket.on('error_msg', (msg) => showToast(msg));
+
+    socket.on('game_started', (mode) => {
+        if(mode) currentGameMode = mode;
+        document.getElementById('lobby-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        if (isHost) document.getElementById('host-view').classList.remove('hidden');
+        else document.getElementById('player-view').classList.remove('hidden');
+    });
+
+    socket.on('number_drawn', (data) => {
+        if (data.history) calledNumbers = data.history;
+        else {
+            calledNumbers.push(data.number);
+            playCry(data.number);
+        }
+        const num = data.number;
+        const formattedHTML = getBingoFormatted(num);
+        document.getElementById('called-display').innerHTML = `<div style="font-size:50px; line-height:1;">${formattedHTML}</div><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:100px">`;
+        const historyHTML = calledNumbers.slice(-5).map(n => getBingoFormatted(n)).join(', ');
+        document.getElementById('last-calls').innerHTML = "History: " + historyHTML;
+        document.getElementById('host-current-call-display').innerHTML = `<span style="font-size: 40px; margin-right: 15px;">${formattedHTML}</span><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">`;
+        if (data.history) data.history.forEach(n => { const cell = document.getElementById(`master-${n}`); if(cell) cell.classList.add('called'); });
+    });
+
+    socket.on('host_update', (data) => {
+        const list = document.getElementById('leaderboard-list');
+        list.innerHTML = '';
+        data.topPlayers.forEach(p => {
+            const row = document.createElement('div');
+            row.className = 'player-row';
+            const info = document.createElement('div');
+            info.className = 'player-info';
+            info.innerHTML = `<h4>${p.name}</h4><p>${p.toGo} to go</p>`;
+            const mini = document.createElement('div');
+            mini.className = 'mini-card';
+            p.card.forEach(cardRow => {
+                cardRow.forEach(val => {
+                    const dot = document.createElement('div');
+                    dot.className = 'mini-cell';
+                    if (val === 151) dot.classList.add('free');
+                    if (p.markedNumbers.includes(val) || val === 151) dot.classList.add('marked');
+                    mini.appendChild(dot);
+                });
+            });
+            row.appendChild(info);
+            row.appendChild(mini);
+            list.appendChild(row);
+        });
+    });
+
+    socket.on('game_over', (winnerName) => {
+        playWinSound(); 
+        document.getElementById('winner-name').innerText = winnerName;
+        document.getElementById('winner-screen').classList.add('show');
+    });
+
+    socket.on('vote_started', (data) => {
+        const modal = document.getElementById('vote-modal');
+        const btns = document.getElementById('vote-buttons');
+        const timer = document.getElementById('vote-timer');
+        
+        if(!data.counts) {
+            ['B','I','N','G','O'].forEach(l => {
+                document.getElementById(`count-${l}`).innerText = '0';
+                document.getElementById(`bar-${l}`).style.height = '0%';
+            });
+        } else {
+            const max = Math.max(...Object.values(data.counts));
+            ['B','I','N','G','O'].forEach(l => {
+                const count = data.counts[l];
+                document.getElementById(`count-${l}`).innerText = count;
+                const h = max > 0 ? (count / max) * 100 : 0;
+                document.getElementById(`bar-${l}`).style.height = `${h}%`;
+            });
+        }
+
+        modal.classList.add('show');
+        if (isHost || (data.hasVoted)) btns.classList.add('hidden');
+        else btns.classList.remove('hidden');
+
+        if(voteTimerInterval) clearInterval(voteTimerInterval);
+        
+        function updateTimer() {
+            const now = Date.now();
+            const remaining = Math.max(0, Math.ceil((data.endTime - now) / 1000));
+            timer.innerText = remaining;
+            if(remaining <= 0) clearInterval(voteTimerInterval);
+        }
+        
+        updateTimer();
+        voteTimerInterval = setInterval(updateTimer, 1000);
+    });
+
+    socket.on('vote_update', (counts) => {
+        const max = Math.max(...Object.values(counts));
+        ['B','I','N','G','O'].forEach(l => {
+            const count = counts[l];
+            document.getElementById(`count-${l}`).innerText = count;
+            const h = max > 0 ? (count / max) * 100 : 0;
+            document.getElementById(`bar-${l}`).style.height = `${h}%`;
+        });
+    });
+
+    socket.on('vote_ended', () => {
+        document.getElementById('vote-modal').classList.remove('show');
+        if(voteTimerInterval) clearInterval(voteTimerInterval);
+    });
+
+</script>
+</body>
+</html>
