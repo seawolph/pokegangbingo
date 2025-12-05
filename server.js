@@ -38,38 +38,27 @@ passport.use(new DiscordStrategy({
     callbackURL: CALLBACK_URL,
     scope: ['identify']
 }, (accessToken, refreshToken, profile, done) => {
-    // FIXED LINE BELOW: Removed 'return'
     process.nextTick(() => done(null, profile));
 }));
 
-// --- AUTH ROUTES ---
 app.get('/auth/discord', passport.authenticate('discord'));
-
-app.get('/auth/discord/callback', passport.authenticate('discord', {
-    failureRedirect: '/'
-}), (req, res) => {
-    res.redirect('/');
-});
-
+app.get('/auth/discord/callback', passport.authenticate('discord', { failureRedirect: '/' }), (req, res) => res.redirect('/'));
 app.get('/auth/me', (req, res) => {
-    if (req.isAuthenticated()) {
-        res.json({ user: req.user });
-    } else {
-        res.json({ user: null });
-    }
+    if (req.isAuthenticated()) res.json({ user: req.user });
+    else res.json({ user: null });
 });
-
 app.get('/logout', (req, res) => {
-    req.logout(() => {
-        res.redirect('/');
-    });
+    req.logout(() => res.redirect('/'));
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- GAME LOGIC ---
+// --- GAME CONFIG ---
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
+// RARE CANDY SETTINGS
+const RARE_CANDY_CHANCE = 0.50; // 50% for testing (Change to 0.05 later)
+const RARE_CANDY_MAX_TURN = 7; 
 
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
@@ -384,6 +373,21 @@ io.on('connection', (socket) => {
                 history: room.calledNumbers 
             });
 
+            // --- RARE CANDY EVENT LOGIC ---
+            // Only checks first 7 balls
+            if (room.calledNumbers.length <= RARE_CANDY_MAX_TURN) {
+                room.players.forEach(player => {
+                    // Only award if they don't have it and haven't used it
+                    if (!player.hasRareCandy && !player.rareCandyUsed) {
+                        const roll = Math.random();
+                        if (roll < RARE_CANDY_CHANCE) {
+                            player.hasRareCandy = true;
+                            io.to(player.id).emit('rare_candy_awarded');
+                        }
+                    }
+                });
+            }
+
             updateHostLeaderboard(roomCode);
         }
     }
@@ -406,7 +410,10 @@ io.on('connection', (socket) => {
                 card: existingPlayer.card,
                 markedNumbers: existingPlayer.markedNumbers,
                 chatHistory: room.chatHistory,
-                gameMode: room.gameMode
+                gameMode: room.gameMode,
+                // PERSIST RARE CANDY STATE
+                hasRareCandy: existingPlayer.hasRareCandy,
+                rareCandyUsed: existingPlayer.rareCandyUsed
             });
             if(room.started) socket.emit('game_started', room.gameMode);
             if (room.calledNumbers.length > 0) {
@@ -436,7 +443,10 @@ io.on('connection', (socket) => {
             card: myCard,
             markedNumbers: [151], 
             toGo: 5,
-            lastChatTime: 0
+            lastChatTime: 0,
+            // RARE CANDY INIT
+            hasRareCandy: false,
+            rareCandyUsed: false
         };
 
         room.players.push(playerObj);
@@ -447,7 +457,9 @@ io.on('connection', (socket) => {
             card: myCard,
             markedNumbers: [151],
             chatHistory: room.chatHistory,
-            gameMode: room.gameMode
+            gameMode: room.gameMode,
+            hasRareCandy: false,
+            rareCandyUsed: false
         });
         io.to(roomCode).emit('player_count_update', room.players.length);
     });
@@ -494,7 +506,10 @@ io.on('connection', (socket) => {
                 card: player.card,
                 markedNumbers: player.markedNumbers,
                 chatHistory: room.chatHistory,
-                gameMode: room.gameMode
+                gameMode: room.gameMode,
+                // RESTORE CANDY
+                hasRareCandy: player.hasRareCandy,
+                rareCandyUsed: player.rareCandyUsed
             });
             if (room.started) socket.emit('game_started', room.gameMode);
             if (room.calledNumbers.length > 0) {
@@ -521,10 +536,19 @@ io.on('connection', (socket) => {
         if (!player) return;
 
         if (isMarking) {
+            // CHECK: Is it in called numbers OR does player have rare candy?
             if (room.calledNumbers.includes(number) || number === 151) {
                 if (!player.markedNumbers.includes(number)) player.markedNumbers.push(number);
+            } 
+            // RARE CANDY USE
+            else if (player.hasRareCandy && !player.rareCandyUsed) {
+                player.markedNumbers.push(number);
+                player.rareCandyUsed = true;
+                player.hasRareCandy = false; // Consume it
+                // We don't broadcast this as a "call" to everyone, it's private to player
             }
         } else {
+            // We generally don't allow un-marking but if we did:
             player.markedNumbers = player.markedNumbers.filter(n => n !== number);
             if (!player.markedNumbers.includes(151)) player.markedNumbers.push(151);
         }
