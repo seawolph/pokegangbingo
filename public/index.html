@@ -6,6 +6,9 @@
     <title>Pokemon Bingo</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
+        /* GLOBAL RESET FOR BETTER MOBILE */
+        * { box-sizing: border-box; }
+
         :root {
             --primary: #FF5252;
             --secondary: #3B4CCA;
@@ -17,17 +20,22 @@
             --text-light: #7F8C8D;
         }
 
-        body { font-family: 'Nunito', sans-serif; background-color: var(--bg); color: var(--text-dark); text-align: center; margin: 0; padding: 0; overflow-x: hidden; }
-        
-        /* MOBILE RESPONSIVE TWEAKS */
+        body { 
+            font-family: 'Nunito', sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text-dark); 
+            text-align: center; 
+            margin: 0; padding: 0;
+            overflow-x: hidden; 
+        }
+
         #app { 
             width: 100%; 
             max-width: 900px; 
             margin: 0 auto; 
             padding: 20px; 
-            box-sizing: border-box;
             min-height: 100vh; 
-            padding-bottom: 200px; 
+            padding-bottom: 220px; /* Space for chat */
         }
 
         .hidden { display: none !important; }
@@ -48,7 +56,7 @@
         .bingo-letter { color: var(--orange-txt); font-weight: 900; }
         .bingo-number { color: var(--secondary); font-weight: 900; }
 
-        .card-container { background: var(--surface); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 40px; margin: 20px auto; max-width: 500px; transition: transform 0.3s ease; }
+        .card-container { background: var(--surface); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 40px; margin: 20px auto; max-width: 500px; transition: transform 0.3s ease; width: 100%; }
 
         input { width: 80%; padding: 15px; font-size: 18px; margin: 10px 0; border: 2px solid #eee; border-radius: 12px; outline: none; transition: 0.3s; font-family: 'Nunito', sans-serif; font-weight: 700; }
         input:focus { border-color: var(--secondary); }
@@ -67,10 +75,10 @@
         .lobby-subtext { color: var(--text-light); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
 
         /* BINGO CARD GRID */
-        #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 5px; }
+        #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 5px; }
         .header-cell { background: var(--primary); color: white; font-weight: 900; font-size: 24px; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 
-        #bingo-card { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        #bingo-card { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
         .bingo-cell { 
             background: white; border-radius: 12px; aspect-ratio: 1; 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
@@ -122,6 +130,15 @@
             animation: bounce 1s infinite;
         }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+        /* NEW CUSTOM MODAL FOR RARE CANDY INTERACTION */
+        #rare-candy-dialog {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.8); z-index: 450; display: none;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        #rare-candy-dialog.show { display: flex; }
+        .rc-content { background: white; padding: 20px; border-radius: 15px; text-align: center; max-width: 80%; }
 
         /* VOTING MODAL */
         #vote-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 150; display: none; flex-direction: column; justify-content: center; align-items: center; }
@@ -204,14 +221,14 @@
 
         /* --- MOBILE MEDIA QUERIES --- */
         @media (max-width: 600px) {
-            #app { padding: 10px; padding-bottom: 250px; } /* More bottom padding for chat */
+            #app { padding: 10px; padding-bottom: 250px; }
             h1 { font-size: 2rem; margin-top: 10px; }
-            .card-container { padding: 20px; width: 95%; box-sizing: border-box; }
+            .card-container { padding: 20px; width: 100%; }
             
             /* Host View */
             #host-dashboard { grid-template-columns: 1fr; gap: 15px; }
-            #master-board { grid-template-columns: repeat(10, 1fr); gap: 1px; } /* 10 cols for mobile */
-            .master-cell { font-size: 10px; padding: 2px 0; }
+            #master-board { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; }
+            .master-cell { width: 9%; font-size: 9px; padding: 2px 0; }
             
             /* Bingo Card */
             #bingo-card { gap: 4px; }
@@ -222,10 +239,10 @@
 
             /* Buttons & Inputs */
             button { width: 100%; padding: 12px; font-size: 14px; }
-            input, select { width: 100%; box-sizing: border-box; }
+            input, select { width: 100%; }
             
             /* Rare Candy */
-            #rare-candy-icon { width: 60px; bottom: 200px; }
+            #rare-candy-icon { width: 60px; bottom: 180px; right: 10px; }
         }
     </style>
 </head>
@@ -236,6 +253,16 @@
 
 <!-- Rare Candy Icon -->
 <img id="rare-candy-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png" alt="Rare Candy">
+
+<!-- Rare Candy Confirmation Modal -->
+<div id="rare-candy-dialog">
+    <div class="rc-content">
+        <h3>Use Rare Candy?</h3>
+        <p>This will mark this spot permanently.</p>
+        <button class="btn-accent" id="rc-confirm-btn">Yes, Use It</button>
+        <button class="btn-primary" onclick="closeRcDialog()" style="margin-top: 10px;">Cancel</button>
+    </div>
+</div>
 
 <div id="app">
     <h1>Pokemon Bingo</h1>
@@ -407,6 +434,7 @@
     let currentGameMode = 'standard';
     let currentUserName = null;
     let hasRareCandy = false; 
+    let pendingCandyTarget = null; // Store which cell was clicked
 
     window.onload = function() {
         fetch('/auth/me')
@@ -540,16 +568,33 @@
             checkLocalBingo();
         } 
         else if (hasRareCandy) {
-            if(confirm("Use Rare Candy to mark this spot?")) {
-                element.classList.add('marked');
-                hasRareCandy = false; 
-                document.getElementById('rare-candy-icon').style.display = 'none'; 
-                socket.emit('mark_number', { roomCode: myRoomCode, number: number, isMarking: true });
-                checkLocalBingo();
-            }
+            // CUSTOM MODAL TRIGGER
+            pendingCandyTarget = { el: element, num: number };
+            document.getElementById('rare-candy-dialog').classList.add('show');
+            
+            // Set listener for Yes button
+            document.getElementById('rc-confirm-btn').onclick = function() {
+                confirmRareCandyUse();
+            };
         }
         else {
             showToast(`${getBingoFormatted(number)} hasn't been called yet!`);
+        }
+    }
+
+    function closeRcDialog() {
+        document.getElementById('rare-candy-dialog').classList.remove('show');
+        pendingCandyTarget = null;
+    }
+
+    function confirmRareCandyUse() {
+        if(pendingCandyTarget && hasRareCandy) {
+            pendingCandyTarget.el.classList.add('marked');
+            hasRareCandy = false;
+            document.getElementById('rare-candy-icon').style.display = 'none';
+            socket.emit('mark_number', { roomCode: myRoomCode, number: pendingCandyTarget.num, isMarking: true });
+            checkLocalBingo();
+            closeRcDialog();
         }
     }
 
@@ -738,6 +783,14 @@
         document.getElementById('rare-candy-icon').style.display = 'block';
         showToast("You found a RARE CANDY! Click any spot to mark it!");
         playWinSound(); 
+    });
+
+    // NEW: FORCE CLOSE MODAL ON EXPIRY
+    socket.on('rare_candy_expired', () => {
+        hasRareCandy = false;
+        document.getElementById('rare-candy-icon').style.display = 'none';
+        closeRcDialog();
+        showToast("Rare Candy Expired!");
     });
 
     socket.on('chat_message', (msg) => { appendChatMessage(msg); });
