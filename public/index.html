@@ -26,7 +26,7 @@
             color: var(--text-dark); 
             text-align: center; 
             margin: 0; padding: 0;
-            overflow-x: hidden; /* Prevent horizontal scroll */
+            overflow-x: hidden; 
         }
 
         #app { 
@@ -35,7 +35,7 @@
             margin: 0 auto; 
             padding: 20px; 
             min-height: 100vh; 
-            padding-bottom: 180px; /* Space for chat */
+            padding-bottom: 220px; 
         }
 
         .hidden { display: none !important; }
@@ -85,7 +85,12 @@
 
         /* BINGO CARD GRID */
         #bingo-header { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 5px; }
-        .header-cell { background: var(--primary); color: white; font-weight: 900; font-size: 24px; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        /* HEADER ALIGNMENT FIX */
+        .header-cell { 
+            background: var(--primary); color: white; font-weight: 900; font-size: 24px; 
+            padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            display: flex; justify-content: center; align-items: center; /* CENTERED */
+        }
 
         #bingo-card { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
         .bingo-cell { 
@@ -232,7 +237,9 @@
         @media (max-width: 600px) {
             #app { padding: 10px; padding-bottom: 250px; }
             h1 { font-size: 2rem; margin-top: 10px; margin-bottom: 10px; }
-            .card-container { padding: 20px; width: 100%; }
+            
+            /* REDUCED CONTAINER PADDING */
+            .card-container { padding: 10px; width: 100%; }
             
             /* Host View */
             #host-dashboard { grid-template-columns: 1fr; gap: 15px; }
@@ -240,9 +247,9 @@
             .master-cell { width: 9%; font-size: 9px; padding: 2px 0; }
             
             /* Compact Game View */
-            #current-call { min-height: 80px; padding: 10px; margin-bottom: 10px; }
+            #current-call { min-height: 70px; padding: 5px; margin-bottom: 10px; }
             #current-call img { width: 60px; }
-            #current-call div { font-size: 36px !important; }
+            #current-call div { font-size: 32px !important; }
 
             /* Bingo Card Tighter */
             #bingo-card { gap: 3px; }
@@ -250,7 +257,7 @@
             .header-cell { font-size: 16px; padding: 5px; }
             .bingo-cell { border-radius: 8px; }
             .bingo-cell span { font-size: 10px; margin-top: 1px; }
-            .bingo-cell img { width: 85%; }
+            .bingo-cell img { width: 80%; }
 
             /* Buttons & Inputs */
             button { width: 100%; padding: 12px; font-size: 14px; }
