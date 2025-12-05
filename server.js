@@ -14,7 +14,17 @@ const io = new Server(server, {
     cors: { origin: "*" }
 });
 
-// --- DISCORD AUTH CONFIGURATION ---
+app.use(express.static(path.join(__dirname, 'public')));
+
+const rooms = {};
+const ADMIN_PASSWORD = "1qaz2wsx$";
+
+const BAD_WORDS = [
+    "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
+    "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay"
+]; 
+
+// --- DISCORD AUTH ---
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const CALLBACK_URL = process.env.CALLBACK_URL;
@@ -51,19 +61,9 @@ app.get('/logout', (req, res) => {
     req.logout(() => res.redirect('/'));
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
-
-// --- GAME CONFIG ---
-const rooms = {};
-const ADMIN_PASSWORD = "1qaz2wsx$";
-// RARE CANDY SETTINGS
-const RARE_CANDY_CHANCE = 0.50; // 50% for testing (Change to 0.05 later)
+// --- RARE CANDY ---
+const RARE_CANDY_CHANCE = 0.50; 
 const RARE_CANDY_MAX_TURN = 7; 
-
-const BAD_WORDS = [
-    "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
-    "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay"
-]; 
 
 function filterMessage(text) {
     let filtered = text;
@@ -78,10 +78,12 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// UPDATED: REMOVED SORTING
 function getUniqueRandoms(min, max, count) {
     let nums = new Set();
     while(nums.size < count) nums.add(getRandomInt(min, max));
-    return Array.from(nums).sort((a, b) => a - b);
+    // Returned WITHOUT sort to keep them random in the column
+    return Array.from(nums);
 }
 
 function generatePlayerCard() {
@@ -203,6 +205,70 @@ io.on('connection', (socket) => {
         }
         drawNumberLogic(roomCode);
     });
+
+    // --- UPDATED DRAW LOGIC FOR GAME MODES ---
+    function drawNumberLogic(roomCode, preferredLetter = null) {
+        const room = rooms[roomCode];
+        if (room && room.availableNumbers.length > 0 && !room.winner) {
+            
+            let filteredPool = room.availableNumbers;
+
+            // 1. Apply Corners Filter (Only B and O)
+            if (room.gameMode === 'corners') {
+                // Keep only 1-30 (B) and 121-150 (O)
+                filteredPool = filteredPool.filter(n => n <= 30 || n >= 121);
+            }
+
+            // 2. Apply Vote Filter (If valid)
+            if (preferredLetter) {
+                let min=1, max=150;
+                if (preferredLetter === 'B') { min=1; max=30; }
+                if (preferredLetter === 'I') { min=31; max=60; }
+                if (preferredLetter === 'N') { min=61; max=90; }
+                if (preferredLetter === 'G') { min=91; max=120; }
+                if (preferredLetter === 'O') { min=121; max=150; }
+
+                const letterSpecific = filteredPool.filter(n => n >= min && n <= max);
+                // Only use the voted letter if there are valid numbers left for it in the current pool
+                if (letterSpecific.length > 0) {
+                    filteredPool = letterSpecific;
+                }
+            }
+
+            // Fallback: If filtered pool is empty (e.g. Corners mode but no B/O left), 
+            // use main pool? In corners mode, if B/O are empty, game effectively stalls, 
+            // but we shouldn't draw I/N/G.
+            if (filteredPool.length === 0) return; // No numbers to draw
+
+            const randomIndex = Math.floor(Math.random() * filteredPool.length);
+            const number = filteredPool[randomIndex];
+            
+            const mainIndex = room.availableNumbers.indexOf(number);
+            if (mainIndex > -1) room.availableNumbers.splice(mainIndex, 1);
+            
+            room.calledNumbers.push(number);
+
+            io.to(roomCode).emit('number_drawn', { 
+                number: number, 
+                history: room.calledNumbers 
+            });
+
+            // RARE CANDY
+            if (room.calledNumbers.length <= RARE_CANDY_MAX_TURN) {
+                room.players.forEach(player => {
+                    if (!player.hasRareCandy && !player.rareCandyUsed) {
+                        const roll = Math.random();
+                        if (roll < RARE_CANDY_CHANCE) {
+                            player.hasRareCandy = true;
+                            io.to(player.id).emit('rare_candy_awarded');
+                        }
+                    }
+                });
+            }
+
+            updateHostLeaderboard(roomCode);
+        }
+    }
 
     socket.on('send_chat', ({ roomCode, message, clientID }) => {
         const room = rooms[roomCode];
@@ -340,58 +406,6 @@ io.on('connection', (socket) => {
         drawNumberLogic(roomCode, winningLetter);
     }
 
-    function drawNumberLogic(roomCode, preferredLetter = null) {
-        const room = rooms[roomCode];
-        if (room && room.availableNumbers.length > 0 && !room.winner) {
-            
-            let filteredPool = room.availableNumbers;
-
-            if (preferredLetter) {
-                let min=1, max=150;
-                if (preferredLetter === 'B') { min=1; max=30; }
-                if (preferredLetter === 'I') { min=31; max=60; }
-                if (preferredLetter === 'N') { min=61; max=90; }
-                if (preferredLetter === 'G') { min=91; max=120; }
-                if (preferredLetter === 'O') { min=121; max=150; }
-
-                const letterSpecific = room.availableNumbers.filter(n => n >= min && n <= max);
-                if (letterSpecific.length > 0) {
-                    filteredPool = letterSpecific;
-                }
-            }
-
-            const randomIndex = Math.floor(Math.random() * filteredPool.length);
-            const number = filteredPool[randomIndex];
-            
-            const mainIndex = room.availableNumbers.indexOf(number);
-            if (mainIndex > -1) room.availableNumbers.splice(mainIndex, 1);
-            
-            room.calledNumbers.push(number);
-
-            io.to(roomCode).emit('number_drawn', { 
-                number: number, 
-                history: room.calledNumbers 
-            });
-
-            // --- RARE CANDY EVENT LOGIC ---
-            // Only checks first 7 balls
-            if (room.calledNumbers.length <= RARE_CANDY_MAX_TURN) {
-                room.players.forEach(player => {
-                    // Only award if they don't have it and haven't used it
-                    if (!player.hasRareCandy && !player.rareCandyUsed) {
-                        const roll = Math.random();
-                        if (roll < RARE_CANDY_CHANCE) {
-                            player.hasRareCandy = true;
-                            io.to(player.id).emit('rare_candy_awarded');
-                        }
-                    }
-                });
-            }
-
-            updateHostLeaderboard(roomCode);
-        }
-    }
-
     socket.on('join_game', ({roomCode, name, clientID}) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
@@ -411,7 +425,6 @@ io.on('connection', (socket) => {
                 markedNumbers: existingPlayer.markedNumbers,
                 chatHistory: room.chatHistory,
                 gameMode: room.gameMode,
-                // PERSIST RARE CANDY STATE
                 hasRareCandy: existingPlayer.hasRareCandy,
                 rareCandyUsed: existingPlayer.rareCandyUsed
             });
@@ -442,9 +455,8 @@ io.on('connection', (socket) => {
             name: name || `Player ${room.players.length + 1}`,
             card: myCard,
             markedNumbers: [151], 
-            toGo: 5,
+            toGo: 24, 
             lastChatTime: 0,
-            // RARE CANDY INIT
             hasRareCandy: false,
             rareCandyUsed: false
         };
@@ -507,7 +519,6 @@ io.on('connection', (socket) => {
                 markedNumbers: player.markedNumbers,
                 chatHistory: room.chatHistory,
                 gameMode: room.gameMode,
-                // RESTORE CANDY
                 hasRareCandy: player.hasRareCandy,
                 rareCandyUsed: player.rareCandyUsed
             });
@@ -536,19 +547,15 @@ io.on('connection', (socket) => {
         if (!player) return;
 
         if (isMarking) {
-            // CHECK: Is it in called numbers OR does player have rare candy?
             if (room.calledNumbers.includes(number) || number === 151) {
                 if (!player.markedNumbers.includes(number)) player.markedNumbers.push(number);
             } 
-            // RARE CANDY USE
             else if (player.hasRareCandy && !player.rareCandyUsed) {
                 player.markedNumbers.push(number);
                 player.rareCandyUsed = true;
-                player.hasRareCandy = false; // Consume it
-                // We don't broadcast this as a "call" to everyone, it's private to player
+                player.hasRareCandy = false; 
             }
         } else {
-            // We generally don't allow un-marking but if we did:
             player.markedNumbers = player.markedNumbers.filter(n => n !== number);
             if (!player.markedNumbers.includes(151)) player.markedNumbers.push(151);
         }
