@@ -40,6 +40,15 @@
 
         .hidden { display: none !important; }
 
+        /* MUTE BUTTON */
+        #mute-btn {
+            position: fixed; top: 10px; right: 10px; z-index: 300;
+            background: rgba(255,255,255,0.9); border: 2px solid var(--text-dark);
+            border-radius: 50%; width: 35px; height: 35px; font-size: 18px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
         h1 { 
             color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 20px; 
             text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); 
@@ -100,29 +109,28 @@
         .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.free-space img { opacity: 1; }
 
-        /* --- CURRENT CALL BOX (REVERTED TO LARGE) --- */
+        /* --- CURRENT CALL BOX (TIGHTER) --- */
         #current-call { 
             background: white; 
-            padding: 20px; 
-            margin-bottom: 20px; 
-            border-radius: 20px; 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+            padding: 10px; /* Tight padding */
+            margin-bottom: 10px; 
+            border-radius: 15px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
             border: 2px solid var(--secondary); 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
             justify-content: center; 
-            min-height: 120px; 
         }
 
         .cc-title {
-            color: var(--text-light); text-transform: uppercase; font-size: 12px; font-weight: 800;
-            margin-bottom: 5px;
+            color: var(--text-light); text-transform: uppercase; font-size: 11px; font-weight: 800;
+            margin-bottom: 5px; display: none; /* HIDE TITLE FOR SPACE */
         }
 
         #called-display {
             display: flex; align-items: center; justify-content: center; gap: 15px;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
         }
 
         #current-call img {
@@ -133,8 +141,11 @@
             width: 80px; height: 80px; object-fit: contain; vertical-align: middle;
         }
         
+        /* HISTORY INSIDE BOX */
         #last-calls {
-            margin-top: 20px; font-size: 14px; color: #aaa; font-weight: 700;
+            margin-top: 2px; font-size: 11px; color: #aaa; font-weight: 700;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 90%;
         }
 
         #bingo-btn { width: 100%; margin: 15px 0; padding: 15px; font-size: 24px; letter-spacing: 2px; background: linear-gradient(45deg, #FF5252, #FF1744); display: none; animation: pulse 1.5s infinite; }
@@ -166,9 +177,11 @@
         /* RARE CANDY ICON */
         #rare-candy-icon { 
             position: fixed; bottom: 220px; right: 20px; width: 80px; z-index: 400; cursor: pointer; display: none;
-            animation: bounce 1s infinite;
+            filter: drop-shadow(0 0 10px #FFCB05);
+            animation: bounce 1s infinite, glow 2s infinite alternate;
         }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes glow { from { filter: drop-shadow(0 0 5px #FFCB05); } to { filter: drop-shadow(0 0 20px #FFCB05); } }
 
         /* CUSTOM DIALOG */
         #rare-candy-dialog {
@@ -297,6 +310,9 @@
 </head>
 <body>
 
+<!-- Mute Button -->
+<div id="mute-btn" onclick="toggleMute()">🔊</div>
+
 <!-- Rare Candy Icon -->
 <img id="rare-candy-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png" alt="Rare Candy">
 
@@ -389,12 +405,14 @@
 
         <!-- PLAYER VIEW -->
         <div id="player-view" class="hidden">
-            <!-- REVERTED TO ORIGINAL LAYOUT -->
+            <!-- COMPACT CALL BOX WITH HISTORY INSIDE -->
             <div id="current-call">
                 <div class="cc-title">CURRENT CALL</div>
                 <div id="called-display">
                     <span style="color:#ccc;">Waiting...</span>
                 </div>
+                <!-- HISTORY MOVED HERE -->
+                <div id="last-calls">History: None</div>
             </div>
             
             <button id="bingo-btn" class="btn-accent" onclick="claimBingo()">CLAIM BINGO!</button>
@@ -409,7 +427,6 @@
                 </div>
                 <div id="bingo-card"></div>
             </div>
-            <div id="last-calls" style="margin-top:20px; color:#aaa; font-size: 14px; font-weight: 700;">History: None</div>
         </div>
     </div>
 </div>
@@ -480,6 +497,7 @@
     let myCardGrid = []; 
     let voteTimerInterval = null;
     let isHost = false;
+    let isMuted = false;
     let currentGameMode = 'standard';
     let currentUserName = null;
     let hasRareCandy = false; 
@@ -501,6 +519,32 @@
             })
             .catch(err => console.error("Auth check failed", err));
     };
+
+    function toggleMute() {
+        isMuted = !isMuted;
+        document.getElementById('mute-btn').innerText = isMuted ? '🔇' : '🔊';
+        unlockAudio();
+    }
+
+    function unlockAudio() {
+        const audio = new Audio();
+        audio.play().catch(() => {});
+    }
+
+    function playCry(num) {
+        if (isMuted) return;
+        const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${num}.ogg`);
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log("Cry Play failed:", e));
+    }
+
+    function playWinSound() {
+        if (isMuted) return;
+        const audio = new Audio('https://github.com/PokeAPI/cries/raw/main/cries/pokemon/latest/151.ogg'); 
+        const winAudio = new Audio('https://github.com/itsthatguy57/pokemon-sounds/raw/master/level_up.mp3');
+        winAudio.volume = 0.6;
+        winAudio.play().catch(e => console.log("Win sound failed:", e));
+    }
 
     function getLocalClientID() {
         let id = localStorage.getItem('bingo_client_id');
@@ -537,7 +581,7 @@
         const toast = document.getElementById("toast");
         toast.innerHTML = htmlMessage; 
         toast.className = "show";
-        setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+        setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 5000); // INCREASED TO 5 SECONDS
     }
 
     function initMasterBoard() {
@@ -665,6 +709,7 @@
     function createGame() {
         const pass = document.getElementById('admin-pass').value;
         if(!pass) return showToast("Enter Admin Password");
+        unlockAudio(); 
         socket.emit('create_game', { password: pass, clientID: myClientID });
     }
     
@@ -672,6 +717,7 @@
         if(!currentUserName) return showToast("Please login first");
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!code) return showToast("Enter room code");
+        unlockAudio(); 
         socket.emit('join_game', { roomCode: code, name: currentUserName, clientID: myClientID });
     }
 
@@ -801,6 +847,7 @@
         hasRareCandy = true;
         document.getElementById('rare-candy-icon').style.display = 'block';
         showToast("You found a RARE CANDY! Click any spot to mark it!");
+        playWinSound(); 
     });
 
     // FORCE CLOSE MODAL ON EXPIRY
@@ -841,6 +888,7 @@
         if (data.history) calledNumbers = data.history;
         else {
             calledNumbers.push(data.number);
+            playCry(data.number);
         }
         const num = data.number;
         const formattedHTML = getBingoFormatted(num);
@@ -878,6 +926,7 @@
     });
 
     socket.on('game_over', (winnerName) => {
+        playWinSound(); 
         document.getElementById('winner-name').innerText = winnerName;
         document.getElementById('winner-screen').classList.add('show');
     });
