@@ -102,14 +102,22 @@
         .bingo-cell.marked:not(.free-space) img { opacity: 0.3; }
         .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.free-space img { opacity: 1; }
+        
+        /* NEW BLANK CELL STYLE */
+        .bingo-cell.blank-cell {
+            background: #f9f9f9; /* Light grey/white */
+            border-color: #eee;
+            cursor: default;
+            box-shadow: none;
+        }
 
         /* --- CURRENT CALL BOX --- */
         #current-call { 
             background: white; 
-            padding: 15px; 
-            margin-bottom: 20px; 
-            border-radius: 20px; 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+            padding: 10px 15px; 
+            margin-bottom: 10px; 
+            border-radius: 15px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
             border: 2px solid var(--secondary); 
             display: flex; 
             flex-direction: column; 
@@ -119,40 +127,27 @@
         }
 
         .cc-title {
-            color: var(--text-light); text-transform: uppercase; font-size: 12px; font-weight: 800;
-            margin-bottom: 5px; display: none; /* Hidden to save space */
+            color: var(--text-light); text-transform: uppercase; font-size: 11px; font-weight: 800;
+            margin-bottom: 5px; display: none; 
         }
 
         #called-display {
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 20px; /* Space between number and image */
-            margin-bottom: 5px;
-            width: 100%;
+            display: flex; align-items: center; justify-content: center; gap: 15px;
+            margin-bottom: 2px;
         }
 
-        /* New Standardized Sizes */
-        .call-sprite {
-            width: auto; 
-            height: 80px; 
-            object-fit: contain;
+        #current-call img {
+            width: 80px; height: 80px; object-fit: contain;
         }
         
-        .bingo-num-display {
-            font-size: 64px; /* Reasonable size */
-            line-height: 1;
-            font-weight: 900;
-        }
-        
-        /* Host specific */
         #host-current-call-display img {
             width: 80px; height: 80px; object-fit: contain; vertical-align: middle;
         }
         
         #last-calls {
-            margin-top: 5px; font-size: 14px; color: #aaa; font-weight: 700;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 95%;
+            margin-top: 2px; font-size: 11px; color: #aaa; font-weight: 700;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 90%;
         }
 
         #bingo-btn { width: 100%; margin: 15px 0; padding: 15px; font-size: 24px; letter-spacing: 2px; background: linear-gradient(45deg, #FF5252, #FF1744); display: none; animation: pulse 1.5s infinite; }
@@ -273,26 +268,9 @@
         }
 
         /* Toast */
-        #toast { 
-            visibility: hidden; 
-            min-width: 250px; 
-            left: 50%; 
-            transform: translateX(-50%);
-            margin-left: 0;
-            background-color: var(--text-dark); color: #fff; 
-            text-align: center; border-radius: 50px; padding: 16px; 
-            position: fixed; z-index: 200; bottom: 30px; 
-            opacity: 0; transition: opacity 0.5s, bottom 0.5s; font-weight: 700; 
-            width: max-content; max-width: 90%;
-        }
+        #toast { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: var(--text-dark); color: #fff; text-align: center; border-radius: 50px; padding: 16px; position: fixed; z-index: 200; left: 50%; bottom: 30px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; font-weight: 700; }
         #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
-        
-        #toast.rare-candy-style {
-            background-color: #4CAF50; 
-            color: #000000; 
-            font-weight: 900;
-        }
-        
+        #toast.rare-candy-style { background-color: #4CAF50; color: #000000; font-weight: 900; }
         #toast .bingo-letter { color: #FF9100; } 
         #toast .bingo-number { color: #4FC3F7; }
 
@@ -311,21 +289,11 @@
             #master-board { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; }
             .master-cell { width: 9%; font-size: 9px; padding: 2px 0; }
             
-            /* COMPACT CALL BOX MOBILE */
-            #current-call { 
-                padding: 10px; margin-bottom: 8px; 
-                height: auto;
-                min-height: 80px;
-            }
-            
-            /* SMALLER IMAGE AND TEXT ON MOBILE */
-            .call-sprite { height: 60px !important; width: auto; }
-            .bingo-num-display { font-size: 36px !important; margin-right: 10px; }
-            
-            /* History smaller */
-            #last-calls { font-size: 10px; margin-top: 5px; }
+            #current-call { padding: 10px; margin-bottom: 8px; height: auto; min-height: 80px; }
+            #current-call img { width: 50px; height: 50px; }
+            #called-display .bingo-num-display { font-size: 36px !important; margin-right: 10px; }
+            #last-calls { font-size: 10px; max-width: 100%; text-align: center; margin-top: 5px; }
 
-            /* Bingo Card Tighter */
             #bingo-card { gap: 3px; }
             #bingo-header { gap: 3px; margin-bottom: 3px; }
             .header-cell { font-size: 16px; padding: 5px; }
@@ -342,10 +310,8 @@
 </head>
 <body>
 
-<!-- Rare Candy Icon -->
 <img id="rare-candy-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png" alt="Rare Candy">
 
-<!-- Rare Candy Confirmation Modal -->
 <div id="rare-candy-dialog">
     <div class="rc-content">
         <h3>Use Rare Candy?</h3>
@@ -356,10 +322,8 @@
 </div>
 
 <div id="app">
-    <!-- TITLE: Added ID to toggle it off -->
     <h1 id="game-title">Pokemon Bingo</h1>
 
-    <!-- Landing Screen -->
     <div id="landing-screen">
         <div class="card-container">
             <h3 style="color: var(--secondary);">Host a Game</h3>
@@ -370,14 +334,12 @@
         
         <div class="card-container">
             <h3 style="color: var(--primary);">Join a Game</h3>
-            
             <div id="login-section">
                 <p style="color: #666; margin-bottom: 20px;">Please log in to play.</p>
                 <a href="/auth/discord" class="btn-discord" style="padding: 15px 30px; border-radius: 50px; font-weight: 800; background: #5865F2; color:white; text-decoration:none;">
                     Login with Discord
                 </a>
             </div>
-
             <div id="join-section" class="hidden">
                 <p id="welcome-msg" style="color: var(--secondary); font-weight: 800; font-size: 18px; margin-bottom: 10px;"></p>
                 <input type="text" id="join-code" class="code-input" placeholder="Room Code">
@@ -390,7 +352,6 @@
         </div>
     </div>
 
-    <!-- Lobby Screen -->
     <div id="lobby-screen" class="hidden">
         <div class="card-container">
             <h2 id="room-code-display" style="color: var(--text-dark); font-size: 32px; letter-spacing: 2px;"></h2>
@@ -399,21 +360,19 @@
                 <div id="player-count-display" class="lobby-counter">0</div>
             </div>
             <p style="color: #888;">Waiting for host to start...</p>
-            
             <div id="host-lobby-controls" class="hidden">
                 <select id="game-mode">
                     <option value="standard">Standard (Line/Diagonal)</option>
                     <option value="coverall">Coverall (Blackout)</option>
                     <option value="corners">Four Corners</option>
+                    <option value="borders">Borders (Frame)</option>
                 </select>
                 <button class="btn-host" onclick="startGame()">Start Game (Lock Room)</button>
             </div>
         </div>
     </div>
 
-    <!-- GAME SCREEN -->
     <div id="game-screen" class="hidden">
-        <!-- HOST VIEW -->
         <div id="host-view" class="hidden">
             <div id="host-controls" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
                 <button class="btn-host" onclick="drawNumber()" style="padding: 15px 40px; font-size: 20px;">Draw Pokemon</button>
@@ -432,15 +391,12 @@
             </div>
         </div>
 
-        <!-- PLAYER VIEW -->
         <div id="player-view" class="hidden">
-            <!-- UPDATED COMPACT CALL BOX -->
             <div id="current-call">
                 <div class="cc-title">CURRENT CALL</div>
                 <div id="called-display">
                     <span style="color:#ccc;">Waiting...</span>
                 </div>
-                <!-- HISTORY INSIDE -->
                 <div id="last-calls">History: None</div>
             </div>
             
@@ -460,7 +416,6 @@
     </div>
 </div>
 
-<!-- CHAT SECTION -->
 <div id="chat-section" class="hidden">
     <div id="chat-header" onclick="toggleChat()">
         <span>💬 Chat</span>
@@ -475,7 +430,6 @@
     </div>
 </div>
 
-<!-- VOTE MODAL -->
 <div id="vote-modal">
     <div class="vote-card">
         <h2 style="margin:0; color:var(--text-dark)">Vote Next Letter!</h2>
@@ -497,7 +451,6 @@
     </div>
 </div>
 
-<!-- WINNER SCREEN -->
 <div id="winner-screen">
     <div style="text-align: center;">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png" style="width: 150px; margin-bottom: 20px;">
@@ -509,18 +462,17 @@
     </div>
 </div>
 
-<!-- BANNED SCREEN -->
 <div id="banned-screen">
     <h1>YOU HAVE BEEN BANNED</h1>
 </div>
 
 <div id="toast"></div>
-<div id="version-footer">v1.2</div>
+<div id="version-footer">v1.3</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io();
-    const CLIENT_VERSION = "1.2"; 
+    const CLIENT_VERSION = "1.3"; 
     let myRoomCode = null;
     let calledNumbers = [];
     let myCardGrid = []; 
@@ -531,9 +483,7 @@
     let hasRareCandy = false; 
     let pendingCandyTarget = null; 
 
-    socket.on('force_refresh', () => {
-        location.reload();
-    });
+    socket.on('force_refresh', () => { location.reload(); });
 
     window.onload = function() {
         fetch('/auth/me')
@@ -551,8 +501,6 @@
             })
             .catch(err => console.error("Auth check failed", err));
     };
-
-    // NO AUDIO LOGIC
 
     function getLocalClientID() {
         let id = localStorage.getItem('bingo_client_id');
@@ -613,26 +561,40 @@
         myCardGrid = cardGrid; 
         const container = document.getElementById('bingo-card');
         container.innerHTML = '';
-        cardGrid.forEach(row => {
-            row.forEach(num => {
+        cardGrid.forEach((row, r) => {
+            row.forEach((num, c) => {
                 const div = document.createElement('div');
                 div.className = 'bingo-cell';
-                div.id = `cell-${num}`; 
-                div.dataset.number = num;
-                const img = document.createElement('img');
-                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png`;
-                const span = document.createElement('span');
-                span.innerHTML = getBingoFormatted(num);
-                div.appendChild(img);
-                div.appendChild(span);
-
-                if (num === 151) {
-                    div.classList.add('marked');
-                    div.classList.add('free-space'); 
-                } else if (markedNumbers.includes(num)) {
-                    div.classList.add('marked');
+                
+                // --- RENDER MODE LOGIC ---
+                let isActive = true;
+                if (currentGameMode === 'corners') {
+                    if (!((r===0 && c===0) || (r===0 && c===4) || (r===4 && c===0) || (r===4 && c===4))) isActive = false;
+                } else if (currentGameMode === 'borders') {
+                    if (!(r===0 || r===4 || c===0 || c===4)) isActive = false;
                 }
-                if (num !== 151) div.onclick = () => handleCardClick(div, num);
+
+                if (!isActive) {
+                    div.classList.add('blank-cell');
+                    // No content for blank cells
+                } else {
+                    div.id = `cell-${num}`; 
+                    div.dataset.number = num;
+                    const img = document.createElement('img');
+                    img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png`;
+                    const span = document.createElement('span');
+                    span.innerHTML = getBingoFormatted(num);
+                    div.appendChild(img);
+                    div.appendChild(span);
+
+                    if (num === 151) {
+                        div.classList.add('marked');
+                        div.classList.add('free-space'); 
+                    } else if (markedNumbers.includes(num)) {
+                        div.classList.add('marked');
+                    }
+                    if (num !== 151) div.onclick = () => handleCardClick(div, num);
+                }
                 container.appendChild(div);
             });
         });
@@ -640,6 +602,9 @@
     }
 
     function handleCardClick(element, number) {
+        // Extra safety: ignore clicks on blank cells (though they have no content)
+        if (element.classList.contains('blank-cell')) return;
+
         if (element.classList.contains('marked')) return;
         
         if (calledNumbers.includes(number)) {
@@ -695,8 +660,31 @@
         } 
         else if (currentGameMode === 'corners') {
             const corners = [myCardGrid[0][0], myCardGrid[0][4], myCardGrid[4][0], myCardGrid[4][4]];
-            const isMarked = (n) => document.getElementById(`cell-${n}`).classList.contains('marked');
+            // Helper: only check if rendered cell is marked
+            const isMarked = (n) => {
+                const el = document.getElementById(`cell-${n}`);
+                return el && el.classList.contains('marked');
+            };
             if (corners.every(isMarked)) hasBingo = true;
+        }
+        else if (currentGameMode === 'borders') {
+            let allMarked = true;
+             for(let r=0; r<5; r++) {
+                for(let c=0; c<5; c++) {
+                    if (r===0 || r===4 || c===0 || c===4) {
+                         const num = myCardGrid[r][c];
+                         // Ignore free space if it happens to be on border (it won't be in 5x5)
+                         if (num !== 151) {
+                             const el = document.getElementById(`cell-${num}`);
+                             if (!el || !el.classList.contains('marked')) {
+                                 allMarked = false;
+                                 break;
+                             }
+                         }
+                    }
+                }
+            }
+            hasBingo = allMarked;
         } 
         else {
             const isMarked = (num) => {
@@ -730,7 +718,6 @@
         const code = document.getElementById('join-code').value.toUpperCase();
         if(!code) return showToast("Enter room code");
         socket.emit('join_game', { roomCode: code, name: currentUserName, clientID: myClientID, version: CLIENT_VERSION });
-        
         window.scrollTo(0, 0);
     }
 
@@ -865,6 +852,7 @@
         showToast("You have received a rare candy.<br>Use it to unlock a square within 2 calls or it will expire.", true);
     });
 
+    // FORCE CLOSE MODAL ON EXPIRY
     socket.on('rare_candy_expired', () => {
         hasRareCandy = false;
         document.getElementById('rare-candy-icon').style.display = 'none';
@@ -897,7 +885,6 @@
         else document.getElementById('player-view').classList.remove('hidden');
     });
 
-    // UPDATED NUMBER DRAWN: Use Classes not Inline Styles
     socket.on('number_drawn', (data) => {
         if (data.history) calledNumbers = data.history;
         else {
@@ -905,19 +892,10 @@
         }
         const num = data.number;
         const formattedHTML = getBingoFormatted(num);
-        
-        // USE CLASSES FOR SIZING
-        document.getElementById('called-display').innerHTML = `
-            <div class="bingo-num-display">${formattedHTML}</div>
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" class="call-sprite">
-        `;
-        
+        document.getElementById('called-display').innerHTML = `<div class="bingo-num-display" style="font-size:50px; line-height:1;">${formattedHTML}</div><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:110px">`;
         const historyHTML = calledNumbers.slice(-5).map(n => getBingoFormatted(n)).join(', ');
         document.getElementById('last-calls').innerHTML = "History: " + historyHTML;
-        
-        // Host view updates
         document.getElementById('host-current-call-display').innerHTML = `<span style="font-size: 40px; margin-right: 15px;">${formattedHTML}</span><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">`;
-        
         if (data.history) data.history.forEach(n => { const cell = document.getElementById(`master-${n}`); if(cell) cell.classList.add('called'); });
     });
 
