@@ -23,17 +23,15 @@ const ADMIN_PASSWORD = "1qaz2wsx$";
 const RARE_CANDY_CHANCE = 0.05; 
 const RARE_CANDY_MAX_TURN = 7; 
 const RARE_CANDY_DURATION = 2; 
+const CURRENT_VERSION = "1.4"; // Incremented
 
-// --- VERSION ---
-const CURRENT_VERSION = "1.3"; // Incremented
-
+// --- CENSOR LIST ---
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
     "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay",
     "rape", "raped", "penis", "goon", "hentai"
 ]; 
 
-// --- DISCORD AUTH ---
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const CALLBACK_URL = process.env.CALLBACK_URL;
@@ -109,7 +107,6 @@ function generatePlayerCard() {
     return grid;
 }
 
-// --- UPDATED: WIN LOGIC FOR BORDERS ---
 function calculateDistanceToBingo(card, markedNumbers, mode = 'standard') {
     let minMissing = 25; 
 
@@ -135,10 +132,10 @@ function calculateDistanceToBingo(card, markedNumbers, mode = 'standard') {
         return checkSet(corners);
     } 
     else if (mode === 'borders') {
-        // Check edges: Row 0, Row 4, Col 0, Col 4
         let missingCount = 0;
         for(let r=0; r<5; r++) {
             for(let c=0; c<5; c++) {
+                // Top Row, Bottom Row, Left Col, Right Col
                 if (r===0 || r===4 || c===0 || c===4) {
                     const num = card[r][c];
                     if (num !== 151 && !markedNumbers.includes(num)) missingCount++;
@@ -202,11 +199,23 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('draw_number', (roomCode) => {
-        const room = rooms[roomCode];
-        if (!room) return;
+    socket.on('draw_number', (data) => {
+        const roomCode = (typeof data === 'object') ? data.roomCode : data;
+        const senderClientID = (typeof data === 'object') ? data.clientID : null;
 
-        if (room.hostId !== socket.id) {
+        const room = rooms[roomCode];
+        if (!room) {
+            socket.emit('error_msg', 'Room not found (Game may have restarted)');
+            return;
+        }
+
+        let isHost = (room.hostId === socket.id);
+        if (senderClientID && room.hostClientID === senderClientID) {
+            isHost = true;
+            if (room.hostId !== socket.id) room.hostId = socket.id;
+        }
+
+        if (!isHost) {
             const cheater = room.players.find(p => p.id === socket.id);
             const cheaterName = cheater ? cheater.name : "Unknown User";
             const alertMsg = {
@@ -220,6 +229,7 @@ io.on('connection', (socket) => {
             io.to(roomCode).emit('chat_message', alertMsg);
             return; 
         }
+        
         drawNumberLogic(roomCode);
     });
 
@@ -232,6 +242,8 @@ io.on('connection', (socket) => {
             if (room.gameMode === 'corners') {
                 filteredPool = filteredPool.filter(n => n <= 30 || n >= 121);
             }
+            // For borders/coverall/standard, we use the full pool (1-150)
+            // Borders relies on card position, not number value.
 
             if (preferredLetter) {
                 let min=1, max=150;
