@@ -43,6 +43,8 @@
 
         .hidden { display: none !important; }
 
+        /* MUTE BUTTON REMOVED */
+
         h1 { 
             color: var(--secondary); font-weight: 900; font-size: 3rem; margin-bottom: 20px; 
             text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); 
@@ -103,13 +105,14 @@
         .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.free-space img { opacity: 1; }
         
-        /* NEW BLANK CELL STYLE */
+        /* BLANK CELL */
         .bingo-cell.blank-cell {
-            background: #f9f9f9; /* Light grey/white */
+            background: #f9f9f9; 
             border-color: #eee;
             cursor: default;
             box-shadow: none;
         }
+        .bingo-cell.blank-cell img, .bingo-cell.blank-cell span { display: none; }
 
         /* --- CURRENT CALL BOX --- */
         #current-call { 
@@ -310,8 +313,10 @@
 </head>
 <body>
 
+<!-- Rare Candy Icon -->
 <img id="rare-candy-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png" alt="Rare Candy">
 
+<!-- Rare Candy Confirmation Modal -->
 <div id="rare-candy-dialog">
     <div class="rc-content">
         <h3>Use Rare Candy?</h3>
@@ -322,8 +327,10 @@
 </div>
 
 <div id="app">
+    <!-- TITLE: Added ID to toggle it off -->
     <h1 id="game-title">Pokemon Bingo</h1>
 
+    <!-- Landing Screen -->
     <div id="landing-screen">
         <div class="card-container">
             <h3 style="color: var(--secondary);">Host a Game</h3>
@@ -334,12 +341,14 @@
         
         <div class="card-container">
             <h3 style="color: var(--primary);">Join a Game</h3>
+            
             <div id="login-section">
                 <p style="color: #666; margin-bottom: 20px;">Please log in to play.</p>
                 <a href="/auth/discord" class="btn-discord" style="padding: 15px 30px; border-radius: 50px; font-weight: 800; background: #5865F2; color:white; text-decoration:none;">
                     Login with Discord
                 </a>
             </div>
+
             <div id="join-section" class="hidden">
                 <p id="welcome-msg" style="color: var(--secondary); font-weight: 800; font-size: 18px; margin-bottom: 10px;"></p>
                 <input type="text" id="join-code" class="code-input" placeholder="Room Code">
@@ -352,6 +361,7 @@
         </div>
     </div>
 
+    <!-- Lobby Screen -->
     <div id="lobby-screen" class="hidden">
         <div class="card-container">
             <h2 id="room-code-display" style="color: var(--text-dark); font-size: 32px; letter-spacing: 2px;"></h2>
@@ -360,6 +370,7 @@
                 <div id="player-count-display" class="lobby-counter">0</div>
             </div>
             <p style="color: #888;">Waiting for host to start...</p>
+            
             <div id="host-lobby-controls" class="hidden">
                 <select id="game-mode">
                     <option value="standard">Standard (Line/Diagonal)</option>
@@ -372,7 +383,9 @@
         </div>
     </div>
 
+    <!-- GAME SCREEN -->
     <div id="game-screen" class="hidden">
+        <!-- HOST VIEW -->
         <div id="host-view" class="hidden">
             <div id="host-controls" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
                 <button class="btn-host" onclick="drawNumber()" style="padding: 15px 40px; font-size: 20px;">Draw Pokemon</button>
@@ -391,12 +404,15 @@
             </div>
         </div>
 
+        <!-- PLAYER VIEW -->
         <div id="player-view" class="hidden">
+            <!-- UPDATED COMPACT CALL BOX -->
             <div id="current-call">
                 <div class="cc-title">CURRENT CALL</div>
                 <div id="called-display">
                     <span style="color:#ccc;">Waiting...</span>
                 </div>
+                <!-- HISTORY INSIDE -->
                 <div id="last-calls">History: None</div>
             </div>
             
@@ -416,6 +432,7 @@
     </div>
 </div>
 
+<!-- CHAT SECTION -->
 <div id="chat-section" class="hidden">
     <div id="chat-header" onclick="toggleChat()">
         <span>💬 Chat</span>
@@ -430,6 +447,7 @@
     </div>
 </div>
 
+<!-- VOTE MODAL -->
 <div id="vote-modal">
     <div class="vote-card">
         <h2 style="margin:0; color:var(--text-dark)">Vote Next Letter!</h2>
@@ -451,6 +469,7 @@
     </div>
 </div>
 
+<!-- WINNER SCREEN -->
 <div id="winner-screen">
     <div style="text-align: center;">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png" style="width: 150px; margin-bottom: 20px;">
@@ -462,20 +481,22 @@
     </div>
 </div>
 
+<!-- BANNED SCREEN -->
 <div id="banned-screen">
     <h1>YOU HAVE BEEN BANNED</h1>
 </div>
 
 <div id="toast"></div>
-<div id="version-footer">v1.3</div>
+<div id="version-footer">v1.4</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io();
-    const CLIENT_VERSION = "1.3"; 
+    const CLIENT_VERSION = "1.4"; 
     let myRoomCode = null;
     let calledNumbers = [];
     let myCardGrid = []; 
+    let myMarkedNumbers = []; // NEW: Track locally
     let voteTimerInterval = null;
     let isHost = false;
     let currentGameMode = 'standard';
@@ -559,6 +580,7 @@
 
     function renderPlayerCard(cardGrid, markedNumbers = []) {
         myCardGrid = cardGrid; 
+        myMarkedNumbers = markedNumbers; // Update local state
         const container = document.getElementById('bingo-card');
         container.innerHTML = '';
         cardGrid.forEach((row, r) => {
@@ -566,7 +588,7 @@
                 const div = document.createElement('div');
                 div.className = 'bingo-cell';
                 
-                // --- RENDER MODE LOGIC ---
+                // RENDER MODE LOGIC
                 let isActive = true;
                 if (currentGameMode === 'corners') {
                     if (!((r===0 && c===0) || (r===0 && c===4) || (r===4 && c===0) || (r===4 && c===4))) isActive = false;
@@ -576,7 +598,6 @@
 
                 if (!isActive) {
                     div.classList.add('blank-cell');
-                    // No content for blank cells
                 } else {
                     div.id = `cell-${num}`; 
                     div.dataset.number = num;
@@ -602,14 +623,14 @@
     }
 
     function handleCardClick(element, number) {
-        // Extra safety: ignore clicks on blank cells (though they have no content)
         if (element.classList.contains('blank-cell')) return;
-
         if (element.classList.contains('marked')) return;
         
         if (calledNumbers.includes(number)) {
             element.classList.add('marked');
             socket.emit('mark_number', { roomCode: myRoomCode, number: number, isMarking: true });
+            // Update local marks immediately
+            if(!myMarkedNumbers.includes(number)) myMarkedNumbers.push(number);
             checkLocalBingo();
         } 
         else if (hasRareCandy) {
@@ -633,6 +654,7 @@
             hasRareCandy = false;
             document.getElementById('rare-candy-icon').style.display = 'none';
             socket.emit('mark_number', { roomCode: myRoomCode, number: pendingCandyTarget.num, isMarking: true });
+            if(!myMarkedNumbers.includes(pendingCandyTarget.num)) myMarkedNumbers.push(pendingCandyTarget.num);
             checkLocalBingo();
             closeRcDialog();
         }
@@ -660,10 +682,9 @@
         } 
         else if (currentGameMode === 'corners') {
             const corners = [myCardGrid[0][0], myCardGrid[0][4], myCardGrid[4][0], myCardGrid[4][4]];
-            // Helper: only check if rendered cell is marked
             const isMarked = (n) => {
-                const el = document.getElementById(`cell-${n}`);
-                return el && el.classList.contains('marked');
+                 const el = document.getElementById(`cell-${n}`);
+                 return el && el.classList.contains('marked');
             };
             if (corners.every(isMarked)) hasBingo = true;
         }
@@ -673,7 +694,6 @@
                 for(let c=0; c<5; c++) {
                     if (r===0 || r===4 || c===0 || c===4) {
                          const num = myCardGrid[r][c];
-                         // Ignore free space if it happens to be on border (it won't be in 5x5)
                          if (num !== 151) {
                              const el = document.getElementById(`cell-${num}`);
                              if (!el || !el.classList.contains('marked')) {
@@ -876,13 +896,18 @@
     socket.on('player_count_update', (count) => { document.getElementById('player-count-display').innerText = count; });
     socket.on('error_msg', (msg) => showToast(msg));
 
+    // UPDATED: RE-RENDER CARD ON START (To applying masking)
     socket.on('game_started', (mode) => {
         if(mode) currentGameMode = mode;
         document.getElementById('lobby-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
         document.getElementById('game-title').classList.add('hidden');
         if (isHost) document.getElementById('host-view').classList.remove('hidden');
-        else document.getElementById('player-view').classList.remove('hidden');
+        else {
+            document.getElementById('player-view').classList.remove('hidden');
+            // FORCE RENDER TO APPLY MODE MASK
+            renderPlayerCard(myCardGrid, myMarkedNumbers);
+        }
     });
 
     socket.on('number_drawn', (data) => {
