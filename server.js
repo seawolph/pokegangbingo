@@ -20,10 +20,10 @@ const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
 // --- VERSION CONTROL ---
-const CURRENT_VERSION = "1.1"; // Increment this for every update
+const CURRENT_VERSION = "1.2"; 
 
 // --- CONFIG ---
-const RARE_CANDY_CHANCE = 0.50; 
+const RARE_CANDY_CHANCE = 0.05; // UPDATED TO 5%
 const RARE_CANDY_MAX_TURN = 7; 
 const RARE_CANDY_DURATION = 2; 
 
@@ -165,13 +165,13 @@ io.on('connection', (socket) => {
             hostClientID: clientID,
             hostLastChat: 0,
             started: false,
+            gameMode: 'standard', 
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
             players: [], 
             bannedClients: [], 
             winner: null,
             chatHistory: [],
-            gameMode: 'standard',
             voteData: { active: false, endTime: 0, counts: { B: 0, I: 0, N: 0, G: 0, O: 0 }, voters: [] }
         };
         
@@ -189,11 +189,25 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('draw_number', (roomCode) => {
+    // --- UPDATED DRAW LISTENER FOR HOST BUG FIX ---
+    socket.on('draw_number', (data) => {
+        // Support both old (string) and new (object) format just in case
+        const roomCode = (typeof data === 'object') ? data.roomCode : data;
+        const senderClientID = (typeof data === 'object') ? data.clientID : null;
+
         const room = rooms[roomCode];
         if (!room) return;
 
-        if (room.hostId !== socket.id) {
+        // BUG FIX: Check ClientID primarily. If that matches host, allow it.
+        // Fallback to socket.id check if ClientID not present (legacy)
+        let isHost = (room.hostId === socket.id);
+        if (senderClientID && room.hostClientID === senderClientID) {
+            isHost = true;
+            // Auto-repair socket ID if it drifted
+            if (room.hostId !== socket.id) room.hostId = socket.id;
+        }
+
+        if (!isHost) {
             const cheater = room.players.find(p => p.id === socket.id);
             const cheaterName = cheater ? cheater.name : "Unknown User";
             const alertMsg = {
@@ -207,6 +221,7 @@ io.on('connection', (socket) => {
             io.to(roomCode).emit('chat_message', alertMsg);
             return; 
         }
+        
         drawNumberLogic(roomCode);
     });
 
@@ -414,7 +429,6 @@ io.on('connection', (socket) => {
     }
 
     socket.on('join_game', ({roomCode, name, clientID, version}) => {
-        // VERSION CHECK
         if (version !== CURRENT_VERSION) {
             socket.emit('force_refresh');
             return;
@@ -497,7 +511,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('reconnect_session', ({ roomCode, clientID, version }) => {
-        // VERSION CHECK
         if (version !== CURRENT_VERSION) {
             socket.emit('force_refresh');
             return;
