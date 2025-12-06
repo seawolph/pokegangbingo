@@ -103,42 +103,45 @@
         .bingo-cell.free-space { background-color: #FFF9C4; border-color: var(--accent); cursor: default; }
         .bingo-cell.free-space img { opacity: 1; }
 
-        /* --- CURRENT CALL BOX (UPDATED) --- */
+        /* --- CURRENT CALL BOX (REVERTED TO LARGE) --- */
         #current-call { 
             background: white; 
-            padding: 10px 15px; 
-            margin-bottom: 10px; 
-            border-radius: 15px; 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+            padding: 20px; 
+            margin-bottom: 20px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
             border: 2px solid var(--secondary); 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
             justify-content: center; 
+            min-height: 120px; 
         }
 
         .cc-title {
-            color: var(--text-light); text-transform: uppercase; font-size: 11px; font-weight: 800;
-            margin-bottom: 5px; display: none; 
+            color: var(--text-light); text-transform: uppercase; font-size: 12px; font-weight: 800;
+            margin-bottom: 5px;
         }
 
         #called-display {
             display: flex; align-items: center; justify-content: center; gap: 15px;
-            margin-bottom: 2px;
+            margin-bottom: 5px;
         }
 
+        /* INCREASED SPRITE SIZE & ALIGNMENT */
         #current-call img {
-            width: 80px; height: 80px; object-fit: contain;
+            width: 110px; height: 110px; object-fit: contain;
         }
-        
+        #called-display .bingo-num-display { font-size: 60px !important; line-height: 1; }
+
         #host-current-call-display img {
             width: 80px; height: 80px; object-fit: contain; vertical-align: middle;
         }
         
+        /* MOVED HISTORY BACK TO BOTTOM */
         #last-calls {
-            margin-top: 2px; font-size: 11px; color: #aaa; font-weight: 700;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            max-width: 90%;
+            margin-top: 10px; font-size: 14px; color: #aaa; font-weight: 700;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 95%;
         }
 
         #bingo-btn { width: 100%; margin: 15px 0; padding: 15px; font-size: 24px; letter-spacing: 2px; background: linear-gradient(45deg, #FF5252, #FF1744); display: none; animation: pulse 1.5s infinite; }
@@ -282,7 +285,6 @@
         #toast .bingo-letter { color: #FF9100; } 
         #toast .bingo-number { color: #4FC3F7; }
 
-        /* FOOTER VERSION */
         #version-footer {
             position: fixed; bottom: 5px; right: 10px; font-size: 10px; color: #ccc; z-index: 10;
         }
@@ -298,14 +300,13 @@
             #master-board { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; }
             .master-cell { width: 9%; font-size: 9px; padding: 2px 0; }
             
-            /* COMPACT CALL BOX */
+            /* COMPACT CALL BOX MOBILE */
             #current-call { 
-                padding: 5px; margin-bottom: 8px; height: auto; 
+                padding: 10px; margin-bottom: 8px; height: auto; 
             }
-            #current-call img { width: 50px; height: 50px; }
-            #called-display .bingo-num-display { font-size: 32px !important; }
-            #last-calls { font-size: 10px; max-width: 100%; text-align: center; margin-top: 5px; }
-
+            #current-call img { width: 70px; height: 70px; }
+            #called-display .bingo-num-display { font-size: 48px !important; }
+            
             /* Bingo Card Tighter */
             #bingo-card { gap: 3px; }
             #bingo-header { gap: 3px; margin-bottom: 3px; }
@@ -337,7 +338,7 @@
 </div>
 
 <div id="app">
-    <!-- TITLE -->
+    <!-- TITLE: Added ID to toggle it off -->
     <h1 id="game-title">Pokemon Bingo</h1>
 
     <!-- Landing Screen -->
@@ -351,12 +352,14 @@
         
         <div class="card-container">
             <h3 style="color: var(--primary);">Join a Game</h3>
+            
             <div id="login-section">
                 <p style="color: #666; margin-bottom: 20px;">Please log in to play.</p>
                 <a href="/auth/discord" class="btn-discord" style="padding: 15px 30px; border-radius: 50px; font-weight: 800; background: #5865F2; color:white; text-decoration:none;">
                     Login with Discord
                 </a>
             </div>
+
             <div id="join-section" class="hidden">
                 <p id="welcome-msg" style="color: var(--secondary); font-weight: 800; font-size: 18px; margin-bottom: 10px;"></p>
                 <input type="text" id="join-code" class="code-input" placeholder="Room Code">
@@ -378,6 +381,7 @@
                 <div id="player-count-display" class="lobby-counter">0</div>
             </div>
             <p style="color: #888;">Waiting for host to start...</p>
+            
             <div id="host-lobby-controls" class="hidden">
                 <select id="game-mode">
                     <option value="standard">Standard (Line/Diagonal)</option>
@@ -412,7 +416,7 @@
 
         <!-- PLAYER VIEW -->
         <div id="player-view" class="hidden">
-            <!-- COMPACT CALL BOX WITH HISTORY INSIDE -->
+            <!-- REVERTED TO ORIGINAL LAYOUT -->
             <div id="current-call">
                 <div class="cc-title">CURRENT CALL</div>
                 <div id="called-display">
@@ -458,6 +462,7 @@
     <div class="vote-card">
         <h2 style="margin:0; color:var(--text-dark)">Vote Next Letter!</h2>
         <div id="vote-timer" class="vote-timer">15</div>
+        
         <div id="vote-buttons">
             <button class="vote-btn" onclick="submitVote('B')">B</button>
             <button class="vote-btn" onclick="submitVote('I')">I</button>
@@ -465,6 +470,7 @@
             <button class="vote-btn" onclick="submitVote('G')">G</button>
             <button class="vote-btn" onclick="submitVote('O')">O</button>
         </div>
+
         <div id="vote-chart">
             <div class="chart-bar-container"><div class="chart-count" id="count-B">0</div><div class="chart-bar" id="bar-B" style="height: 0%;"></div><div class="chart-label">B</div></div>
             <div class="chart-bar-container"><div class="chart-count" id="count-I">0</div><div class="chart-bar" id="bar-I" style="height: 0%;"></div><div class="chart-label">I</div></div>
@@ -493,12 +499,12 @@
 </div>
 
 <div id="toast"></div>
-<div id="version-footer">v1.1</div>
+<div id="version-footer">v1.2</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io();
-    const CLIENT_VERSION = "1.1"; // Version Tracker
+    const CLIENT_VERSION = "1.2"; 
     let myRoomCode = null;
     let calledNumbers = [];
     let myCardGrid = []; 
@@ -509,7 +515,6 @@
     let hasRareCandy = false; 
     let pendingCandyTarget = null; 
 
-    // VERSION CHECK ON RELOAD
     socket.on('force_refresh', () => {
         location.reload();
     });
@@ -530,6 +535,8 @@
             })
             .catch(err => console.error("Auth check failed", err));
     };
+
+    // --- NO AUDIO LOGIC NEEDED ANYMORE ---
 
     function getLocalClientID() {
         let id = localStorage.getItem('bingo_client_id');
@@ -571,7 +578,7 @@
         toast.className = "show " + (isRareCandy ? 'rare-candy-style' : '');
         setTimeout(() => { 
             toast.className = toast.className.replace("show", "").replace("rare-candy-style", ""); 
-        }, 8000); // 8 SECONDS
+        }, 8000); 
     }
 
     function initMasterBoard() {
@@ -708,7 +715,6 @@
         if(!code) return showToast("Enter room code");
         socket.emit('join_game', { roomCode: code, name: currentUserName, clientID: myClientID, version: CLIENT_VERSION });
         
-        // SCROLL TO TOP TO FIX MOBILE KEYBOARD DISPLACEMENT
         window.scrollTo(0, 0);
     }
 
@@ -716,7 +722,10 @@
         const mode = document.getElementById('game-mode').value;
         socket.emit('start_game', { roomCode: myRoomCode, mode: mode }); 
     }
-    function drawNumber() { socket.emit('draw_number', myRoomCode); }
+    function drawNumber() { 
+        // FIX: Send clientID
+        socket.emit('draw_number', { roomCode: myRoomCode, clientID: myClientID }); 
+    }
     
     function startVote() { socket.emit('start_vote', myRoomCode); }
     function submitVote(letter) {
@@ -832,7 +841,6 @@
         document.getElementById('chat-messages').innerHTML = ''; 
         if(data.chatHistory) data.chatHistory.forEach(appendChatMessage);
         
-        // SCROLL RESET
         window.scrollTo(0, 0);
     });
 
@@ -881,7 +889,7 @@
         }
         const num = data.number;
         const formattedHTML = getBingoFormatted(num);
-        document.getElementById('called-display').innerHTML = `<div class="bingo-num-display" style="font-size:50px; line-height:1;">${formattedHTML}</div><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:80px">`;
+        document.getElementById('called-display').innerHTML = `<div class="bingo-num-display" style="font-size:50px; line-height:1;">${formattedHTML}</div><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="width:110px">`;
         const historyHTML = calledNumbers.slice(-5).map(n => getBingoFormatted(n)).join(', ');
         document.getElementById('last-calls').innerHTML = "History: " + historyHTML;
         document.getElementById('host-current-call-display').innerHTML = `<span style="font-size: 40px; margin-right: 15px;">${formattedHTML}</span><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${num}.png" style="height: 80px; vertical-align: middle;">`;
