@@ -19,10 +19,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
+// --- VERSION CONTROL ---
+const CURRENT_VERSION = "1.1"; // Increment this for every update
+
 // --- CONFIG ---
 const RARE_CANDY_CHANCE = 0.50; 
 const RARE_CANDY_MAX_TURN = 7; 
-const RARE_CANDY_DURATION = 2; // UPDATED TO 2
+const RARE_CANDY_DURATION = 2; 
 
 // --- CENSOR LIST ---
 const BAD_WORDS = [
@@ -162,13 +165,13 @@ io.on('connection', (socket) => {
             hostClientID: clientID,
             hostLastChat: 0,
             started: false,
-            gameMode: 'standard', 
             calledNumbers: [],
             availableNumbers: Array.from({length: 150}, (_, i) => i + 1),
             players: [], 
             bannedClients: [], 
             winner: null,
             chatHistory: [],
+            gameMode: 'standard',
             voteData: { active: false, endTime: 0, counts: { B: 0, I: 0, N: 0, G: 0, O: 0 }, voters: [] }
         };
         
@@ -410,7 +413,13 @@ io.on('connection', (socket) => {
         drawNumberLogic(roomCode, winningLetter);
     }
 
-    socket.on('join_game', ({roomCode, name, clientID}) => {
+    socket.on('join_game', ({roomCode, name, clientID, version}) => {
+        // VERSION CHECK
+        if (version !== CURRENT_VERSION) {
+            socket.emit('force_refresh');
+            return;
+        }
+
         const room = rooms[roomCode];
         if (!room) return socket.emit('error_msg', 'Room does not exist.');
 
@@ -487,7 +496,13 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('player_count_update', room.players.length);
     });
 
-    socket.on('reconnect_session', ({ roomCode, clientID }) => {
+    socket.on('reconnect_session', ({ roomCode, clientID, version }) => {
+        // VERSION CHECK
+        if (version !== CURRENT_VERSION) {
+            socket.emit('force_refresh');
+            return;
+        }
+
         const room = rooms[roomCode];
         if (!room) return;
 
