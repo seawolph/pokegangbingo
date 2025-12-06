@@ -19,11 +19,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
+// --- VERSION CONTROL ---
+const CURRENT_VERSION = "1.4"; 
+
 // --- CONFIG ---
 const RARE_CANDY_CHANCE = 0.05; 
 const RARE_CANDY_MAX_TURN = 7; 
 const RARE_CANDY_DURATION = 2; 
-const CURRENT_VERSION = "1.4"; // Incremented
 
 // --- CENSOR LIST ---
 const BAD_WORDS = [
@@ -32,6 +34,7 @@ const BAD_WORDS = [
     "rape", "raped", "penis", "goon", "hentai"
 ]; 
 
+// --- DISCORD AUTH ---
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const CALLBACK_URL = process.env.CALLBACK_URL;
@@ -242,8 +245,6 @@ io.on('connection', (socket) => {
             if (room.gameMode === 'corners') {
                 filteredPool = filteredPool.filter(n => n <= 30 || n >= 121);
             }
-            // For borders/coverall/standard, we use the full pool (1-150)
-            // Borders relies on card position, not number value.
 
             if (preferredLetter) {
                 let min=1, max=150;
@@ -604,6 +605,32 @@ io.on('connection', (socket) => {
                 player.rareCandyUsed = true;
                 player.hasRareCandy = false; 
             }
+            // --- SECURITY CHECK START ---
+            else {
+                // Attempting to mark invalid number
+                const alertMsg = {
+                    name: "SYSTEM",
+                    text: `⚠️ SECURITY: ${player.name} tried to mark uncalled #${number} without a Rare Candy!`,
+                    isHost: true,
+                    isAlert: true 
+                };
+                room.chatHistory.push(alertMsg);
+                if (room.chatHistory.length > 50) room.chatHistory.shift();
+                io.to(roomCode).emit('chat_message', alertMsg);
+                
+                // Reset Cheater
+                socket.emit('joined_success', { 
+                    roomCode, 
+                    card: player.card,
+                    markedNumbers: player.markedNumbers, // Only valid numbers
+                    chatHistory: room.chatHistory,
+                    gameMode: room.gameMode,
+                    hasRareCandy: player.hasRareCandy,
+                    rareCandyUsed: player.rareCandyUsed
+                });
+                return;
+            }
+            // --- SECURITY CHECK END ---
         } else {
             player.markedNumbers = player.markedNumbers.filter(n => n !== number);
             if (!player.markedNumbers.includes(151)) player.markedNumbers.push(151);
