@@ -19,15 +19,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 const ADMIN_PASSWORD = "1qaz2wsx$";
 
-// --- VERSION CONTROL ---
-const CURRENT_VERSION = "1.2"; 
-
 // --- CONFIG ---
-const RARE_CANDY_CHANCE = 0.05; // UPDATED TO 5%
+const RARE_CANDY_CHANCE = 0.05; 
 const RARE_CANDY_MAX_TURN = 7; 
 const RARE_CANDY_DURATION = 2; 
 
-// --- CENSOR LIST ---
+// --- VERSION ---
+const CURRENT_VERSION = "1.3"; // Incremented
+
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
     "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay",
@@ -110,6 +109,7 @@ function generatePlayerCard() {
     return grid;
 }
 
+// --- UPDATED: WIN LOGIC FOR BORDERS ---
 function calculateDistanceToBingo(card, markedNumbers, mode = 'standard') {
     let minMissing = 25; 
 
@@ -134,6 +134,19 @@ function calculateDistanceToBingo(card, markedNumbers, mode = 'standard') {
         const corners = [ card[0][0], card[0][4], card[4][0], card[4][4] ];
         return checkSet(corners);
     } 
+    else if (mode === 'borders') {
+        // Check edges: Row 0, Row 4, Col 0, Col 4
+        let missingCount = 0;
+        for(let r=0; r<5; r++) {
+            for(let c=0; c<5; c++) {
+                if (r===0 || r===4 || c===0 || c===4) {
+                    const num = card[r][c];
+                    if (num !== 151 && !markedNumbers.includes(num)) missingCount++;
+                }
+            }
+        }
+        return missingCount;
+    }
     else {
         minMissing = 5;
         const checkLine = (line) => {
@@ -189,25 +202,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- UPDATED DRAW LISTENER FOR HOST BUG FIX ---
-    socket.on('draw_number', (data) => {
-        // Support both old (string) and new (object) format just in case
-        const roomCode = (typeof data === 'object') ? data.roomCode : data;
-        const senderClientID = (typeof data === 'object') ? data.clientID : null;
-
+    socket.on('draw_number', (roomCode) => {
         const room = rooms[roomCode];
         if (!room) return;
 
-        // BUG FIX: Check ClientID primarily. If that matches host, allow it.
-        // Fallback to socket.id check if ClientID not present (legacy)
-        let isHost = (room.hostId === socket.id);
-        if (senderClientID && room.hostClientID === senderClientID) {
-            isHost = true;
-            // Auto-repair socket ID if it drifted
-            if (room.hostId !== socket.id) room.hostId = socket.id;
-        }
-
-        if (!isHost) {
+        if (room.hostId !== socket.id) {
             const cheater = room.players.find(p => p.id === socket.id);
             const cheaterName = cheater ? cheater.name : "Unknown User";
             const alertMsg = {
@@ -221,7 +220,6 @@ io.on('connection', (socket) => {
             io.to(roomCode).emit('chat_message', alertMsg);
             return; 
         }
-        
         drawNumberLogic(roomCode);
     });
 
