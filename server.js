@@ -22,9 +22,9 @@ const ADMIN_PASSWORD = "1qaz2wsx$";
 // --- CONFIG ---
 const RARE_CANDY_CHANCE = 0.50; 
 const RARE_CANDY_MAX_TURN = 7; 
-const RARE_CANDY_DURATION = 3; 
+const RARE_CANDY_DURATION = 2; // UPDATED TO 2
 
-// --- UPDATED CENSOR LIST ---
+// --- CENSOR LIST ---
 const BAD_WORDS = [
     "nigger", "nigga", "faggot", "dyke", "retard", "chink", "kike", "spic", "tranny", 
     "cunt", "whore", "slut", "dick", "pussy", "cock", "hitler", "nazi", "rapist", "suicide", "nig", "gay",
